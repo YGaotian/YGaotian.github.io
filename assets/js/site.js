@@ -245,7 +245,7 @@ class SiteApp {
                 return;
             }
 
-            const response = await fetch(page.source);
+            const response = await fetch(encodeURI(page.source));
             if (!response.ok) {
                 throw new Error(`Cannot load: ${page.source}`);
             }
@@ -319,7 +319,7 @@ class SiteApp {
                     </div>
                 </div>
                 <div class="pdf-container">
-                    <iframe src="${page.source}#toolbar=0&navpanes=0" class="pdf-iframe" frameborder="0"></iframe>
+                    <iframe src="${encodeURI(page.source)}#toolbar=0&navpanes=0" class="pdf-iframe" frameborder="0"></iframe>
                 </div>
             </div>
         `;
