@@ -1,0 +1,25 @@
+{
+  "logo": {
+    "type": "text",
+    "value": "",
+    "title": "Yan Gao-Tian"
+  },
+
+  "colors": {
+    "headerBgColor": "rgba(255, 248, 230, 0.75)",
+    "headerTextColor": "rgba(80, 80, 80, 1)",
+    "searchBoxBgColor": "rgba(255, 255, 255, 0.6)",
+    "searchBoxTextColor": "rgba(80, 80, 80, 1)",
+    "searchBoxIconColor": "rgba(100, 100, 100, 1)",
+    "sidebarBgColor": "rgba(251, 250, 243, 1)",
+    "sidebarGroupTitleColor": "rgba(155, 155, 155, 1)",
+    "sidebarItemColor": "rgba(107, 107, 107, 1)",
+    "sidebarItemActiveColor": "rgba(114, 95, 161, 1)",
+    "sidebarItemActiveBgColor": "rgba(114, 95, 161, 0.08)",
+    "contentBgColor": "rgba(245, 244, 235, 1)",
+    "contentTextColor": "rgba(29, 29, 33, 1)",
+    "linkColor": "rgba(114, 95, 161, 1)"
+  },
+
+  "favicon": "assets/favicon.ico"
+}

@@ -1,0 +1,40 @@
+{
+  "site": {
+    "title": "Yan Gao-Tian's Cafe"
+  },
+  "navGroups": [
+    {
+      "title": "ABOUT ME",
+      "pages": [
+        {
+          "title": "Welcome",
+          "source": "content/ABOUT ME/001_Welcome.md"
+        },
+        {
+          "title": "My CV",
+          "source": "content/ABOUT ME/002_My CV.pdf",
+          "type": "pdf"
+        }
+      ]
+    },
+    {
+      "title": "MY LOG",
+      "pages": [
+        {
+          "title": "2025.11.23 | Some notes on exporting neuron models with Optimum-Neuron",
+          "source": "content/MY LOG/001_2025-11-23-optimum-neuron.md"
+        }
+      ]
+    },
+    {
+      "title": "MY WORK",
+      "pages": [
+        {
+          "title": "OpenVLThinkerV2",
+          "source": "content/MY WORK/001_OpenVLThinkerV2.pdf",
+          "type": "pdf"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tianyan Cafe</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/gruvbox-dark-medium.min.css">
+    <link rel="stylesheet" href="assets/css/gitbook-style.css">
+</head>
+<body>
+    <!-- Per-cloud SVG turbulence filters -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <filter id="turb-pink" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.015 0.025" numOctaves="2" seed="1" stitchTiles="stitch" result="t">
+                <animate attributeName="baseFrequency" dur="14s" values="0.015 0.025;0.022 0.02;0.017 0.028;0.015 0.025" repeatCount="indefinite"/>
+                <animate attributeName="seed" dur="17s" values="1;6;2;1" repeatCount="indefinite"/>
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="t" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <filter id="turb-orange" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.018 0.022" numOctaves="2" seed="4" stitchTiles="stitch" result="t">
+                <animate attributeName="baseFrequency" dur="15s" values="0.018 0.022;0.013 0.028;0.02 0.02;0.018 0.022" repeatCount="indefinite"/>
+                <animate attributeName="seed" dur="19s" values="4;8;3;4" repeatCount="indefinite"/>
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="t" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <filter id="turb-cyan" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.016 0.03" numOctaves="2" seed="7" stitchTiles="stitch" result="t">
+                <animate attributeName="baseFrequency" dur="13s" values="0.016 0.03;0.024 0.022;0.018 0.032;0.016 0.03" repeatCount="indefinite"/>
+                <animate attributeName="seed" dur="21s" values="7;2;9;7" repeatCount="indefinite"/>
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="t" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <filter id="turb-overall" x="-30%" y="-100%" width="160%" height="300%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.014 0.022" numOctaves="3" seed="5" stitchTiles="stitch" result="t">
+                <animate attributeName="baseFrequency" dur="18s" values="0.014 0.022;0.02 0.018;0.016 0.026;0.014 0.022" repeatCount="indefinite"/>
+                <animate attributeName="seed" dur="23s" values="5;11;3;7;5" repeatCount="indefinite"/>
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="t" scale="8" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <filter id="turb-beige" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.008 0.015" numOctaves="2" seed="2" stitchTiles="stitch" result="t">
+                <animate attributeName="baseFrequency" dur="20s" values="0.008 0.015;0.012 0.013;0.01 0.017;0.008 0.015" repeatCount="indefinite"/>
+                <animate attributeName="seed" dur="25s" values="2;5;9;2" repeatCount="indefinite"/>
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="t" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+    </svg>
+
+    <!-- Top Header Bar -->
+    <header id="top-header" class="top-header">
+        <div class="header-clouds" aria-hidden="true">
+            <div class="header-cloud cloud-pink"></div>
+            <div class="header-cloud cloud-orange"></div>
+            <div class="header-cloud cloud-cyan"></div>
+            <div class="header-cloud cloud-beige"></div>
+        </div>
+        <div class="header-left">
+            <a href="#" class="site-logo" id="site-logo-link">
+                <span class="logo-icon">T</span>
+                <span class="logo-text">Gao-Tian Cafe</span>
+            </a>
+        </div>
+        <div class="header-right">
+            <button class="search-trigger" id="search-trigger">
+                <i class="fas fa-search"></i>
+                <span>Search...</span>
+                <kbd>Ctrl K</kbd>
+            </button>
+        </div>
+    </header>
+
+    <div id="app">
+        <!-- Left Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <nav id="main-nav" class="main-nav">
+                <!-- Navigation will be generated from config -->
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main id="main-content" class="main-content">
+            <div class="content-wrapper">
+                <div class="content-header-bar">
+                    <div id="breadcrumb" class="breadcrumb">
+                        <!-- Breadcrumb -->
+                    </div>
+                </div>
+                
+                <article id="page-content" class="page-content">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Loading...</span>
+                    </div>
+                </article>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Search Modal -->
+    <div id="search-modal" class="search-modal">
+        <div class="search-modal-content">
+            <div class="search-modal-header">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-modal-input" placeholder="Search...">
+                <kbd>ESC</kbd>
+            </div>
+            <div id="search-results" class="search-results">
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+    <script src="assets/js/site.js"></script>
+</body>
+</html>
