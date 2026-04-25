@@ -43,6 +43,17 @@ class SiteApp {
             console.warn('Theme config not found, using defaults');
         }
 
+        // Load layout config (sizes, opacity, blur, border-radius, scrollbar)
+        try {
+            const layoutResponse = await fetch('layout.config.json');
+            if (layoutResponse.ok) {
+                this.layoutConfig = await layoutResponse.json();
+                this.applyLayout();
+            }
+        } catch (e) {
+            console.warn('Layout config not found, using defaults');
+        }
+
         // Apply favicon if configured
         if (this.themeConfig?.favicon) {
             let link = document.querySelector("link[rel~='icon']");
@@ -502,6 +513,44 @@ class SiteApp {
         if (colors.contentBgColor) root.style.setProperty('--bg-content', colors.contentBgColor);
         if (colors.contentTextColor) root.style.setProperty('--text-primary', colors.contentTextColor);
         if (colors.linkColor) root.style.setProperty('--text-link', colors.linkColor);
+        if (colors.sidebarBorderColor) root.style.setProperty('--sidebar-border-color', colors.sidebarBorderColor);
+        if (colors.scrollbarThumbColor) root.style.setProperty('--scrollbar-thumb-color', colors.scrollbarThumbColor);
+        if (colors.scrollbarThumbHoverColor) root.style.setProperty('--scrollbar-thumb-hover-color', colors.scrollbarThumbHoverColor);
+        if (colors.sidebarScrollbarThumbColor) root.style.setProperty('--sidebar-scrollbar-thumb-color', colors.sidebarScrollbarThumbColor);
+        if (colors.sidebarScrollbarThumbHoverColor) root.style.setProperty('--sidebar-scrollbar-thumb-hover-color', colors.sidebarScrollbarThumbHoverColor);
+    }
+
+    applyLayout() {
+        const layout = this.layoutConfig;
+        if (!layout) return;
+        const root = document.documentElement;
+        const set = (name, val) => { if (val !== undefined && val !== null) root.style.setProperty(name, val); };
+
+        if (layout.header) {
+            set('--header-height', layout.header.height);
+            set('--header-blur', layout.header.blurRadius);
+            set('--header-bg-opacity', layout.header.bgOpacity);
+            set('--header-cloud-opacity', layout.header.cloudOpacity);
+            set('--header-fade-start', layout.header.fadeStart);
+            set('--header-fade-extend', layout.header.fadeExtend);
+            set('--header-shadow', layout.header.shadow);
+        }
+        if (layout.sidebar) {
+            set('--sidebar-width', layout.sidebar.width);
+            set('--sidebar-shadow', layout.sidebar.shadow);
+        }
+        if (layout.borderRadius) {
+            set('--radius-small', layout.borderRadius.small);
+            set('--radius-medium', layout.borderRadius.medium);
+            set('--radius-large', layout.borderRadius.large);
+            set('--radius-button', layout.borderRadius.button);
+            set('--radius-tab', layout.borderRadius.tab);
+            set('--radius-pill', layout.borderRadius.pill);
+        }
+        if (layout.scrollbar) {
+            set('--scrollbar-width', layout.scrollbar.width);
+            set('--scrollbar-thumb-radius', layout.scrollbar.thumbRadius);
+        }
     }
 }
 

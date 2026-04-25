@@ -1,0 +1,38 @@
+{
+  "header": {
+    "height": "76px",
+    "blurRadius": "12px",
+    "bgOpacity": 0.3,
+    "cloudOpacity": 0.85,
+    "fadeStart": "80%",
+    "fadeExtend": "16px",
+    "shadow": "0 8px 24px rgba(0, 0, 0, 0.12)"
+  },
+
+  "sidebar": {
+    "width": "260px",
+    "shadow": "10px 0 30px rgba(0, 0, 0, 0.1)"
+  },
+
+  "borderRadius": {
+    "small": "4px",
+    "medium": "8px",
+    "large": "12px",
+    "button": "6px",
+    "tab": "0 0.8em 0.8em 0",
+    "pill": "20px"
+  },
+
+  "scrollbar": {
+    "width": "12px",
+    "thumbRadius": "6px"
+  },
+
+  "clouds": {
+    "speed": 1.5,
+    "orbitRadius": 0.75,
+    "sharpness": 22.0,
+    "warpScale": 1.7,
+    "detail": 1.8
+  }
+}

@@ -11,14 +11,26 @@
     "searchBoxBgColor": "rgba(255, 255, 255, 0.6)",
     "searchBoxTextColor": "rgba(80, 80, 80, 1)",
     "searchBoxIconColor": "rgba(100, 100, 100, 1)",
-    "sidebarBgColor": "rgba(251, 250, 243, 1)",
-    "sidebarGroupTitleColor": "rgba(155, 155, 155, 1)",
-    "sidebarItemColor": "rgba(107, 107, 107, 1)",
-    "sidebarItemActiveColor": "rgba(114, 95, 161, 1)",
-    "sidebarItemActiveBgColor": "rgba(114, 95, 161, 0.08)",
-    "contentBgColor": "rgba(245, 244, 235, 1)",
-    "contentTextColor": "rgba(29, 29, 33, 1)",
-    "linkColor": "rgba(114, 95, 161, 1)"
+    "sidebarBgColor": "#8EBCC5",
+    "sidebarGroupTitleColor": "#F8F8F8",
+    "sidebarItemColor": "#585555",
+    "sidebarItemActiveColor": "#F6F0D5",
+    "sidebarItemActiveBgColor": "rgba(255, 75, 138, 0.61)",
+    "contentBgColor": "#678080",
+    "contentTextColor": "#ECE5BD",
+    "linkColor": "#B7D0FD",
+    "sidebarBorderColor": "rgba(0, 0, 0, 0)",
+    "scrollbarThumbColor": "#FFFFFF",
+    "scrollbarThumbHoverColor": "#FDD97F",
+    "sidebarScrollbarThumbColor": "rgba(204, 204, 204, 1)",
+    "sidebarScrollbarThumbHoverColor": "rgba(170, 170, 170, 1)"
+  },
+
+  "cloudColors": {
+    "color1": "rgba(191, 230, 255, 1)",
+    "color2": "rgba(246, 205, 205, 1)",
+    "color3": "rgba(172, 245, 180, 1)",
+    "color4": "rgba(251, 211, 167, 1)"
   },
 
   "favicon": "assets/favicon.ico"

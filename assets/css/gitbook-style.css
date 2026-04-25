@@ -1,10 +1,10 @@
 /* GitBook-like Style */
 :root {
-    --bg-header: #725FA1;
-    --header-text-color: #ffffff;
-    --search-box-bg: rgba(255,255,255,0.15);
-    --search-box-text: rgba(255,255,255,0.9);
-    --search-box-icon: rgba(255,255,255,0.9);
+    --bg-header: #FAF5E1;
+    --header-text-color: #4a4a4a;
+    --search-box-bg: rgba(255,255,255,0.5);
+    --search-box-text: #4a4a4a;
+    --search-box-icon: #6b6b6b;
     --bg-sidebar: #faf4e0;
     --sidebar-group-title: #9b9b9b;
     --sidebar-item-color: #6b6b6b;
@@ -15,13 +15,38 @@
     --text-link: #725FA1;
     --border-color: #e8e8e8;
     --sidebar-width: 260px;
-    --header-height: 60px;
+    --header-height: 72px;
+    --header-blur: 12px;
+    --header-bg-opacity: 0.3;
+    --header-cloud-opacity: 0.85;
+    --header-fade-start: 80%;
+    --header-fade-extend: 16px;
+    --radius-small: 4px;
+    --radius-medium: 8px;
+    --radius-large: 12px;
+    --radius-button: 6px;
+    --radius-tab: 0 0.8em 0.8em 0;
+    --radius-pill: 20px;
+    --scrollbar-width: 6px;
+    --scrollbar-thumb-radius: 3px;
+    --sidebar-border-color: #e8e8e8;
+    --scrollbar-thumb-color: #ccc;
+    --scrollbar-thumb-hover-color: #aaa;
+    --sidebar-scrollbar-thumb-color: #ccc;
+    --sidebar-scrollbar-thumb-hover-color: #aaa;
+    --header-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    --sidebar-shadow: 4px 0 12px rgba(0, 0, 0, 0.08);
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+}
+
+html, body {
+    height: 100vh;
+    overflow: hidden;
 }
 
 body {
@@ -37,127 +62,81 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: calc(var(--header-height) + 50px);
+    height: var(--header-height);
     background: transparent;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 1.5rem;
-    padding-bottom: 50px;
+    /* padding-bottom compensates for bottom mask fade so content centers in visible (solid) area */
+    padding: 0 1.5rem calc(var(--header-height) * 0.10) 1.5rem;
     z-index: 1000;
-    overflow: visible;
-    -webkit-backdrop-filter: blur(8px) saturate(1.2);
-    backdrop-filter: blur(8px) saturate(1.2);
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black var(--header-height), transparent 100%);
-    mask-image: linear-gradient(to bottom, black 0%, black var(--header-height), transparent 100%);
+    overflow: hidden;
     isolation: isolate;
-    will-change: backdrop-filter;
-    transform: translateZ(0);
+    -webkit-mask-image: linear-gradient(to bottom, black var(--header-fade-start), transparent 100%);
+    mask-image: linear-gradient(to bottom, black var(--header-fade-start), transparent 100%);
 }
 
-/* Solid color background that fades out earlier */
+/* Frosted glass layer — extends past header bottom and fades smoothly.
+   Also hosts the header box-shadow (drop-shadow on .top-header was clipped by its own mask-image). */
+.top-header-blur {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--header-height) + var(--header-fade-extend));
+    backdrop-filter: blur(var(--header-blur));
+    -webkit-backdrop-filter: blur(var(--header-blur));
+    z-index: 999;
+    pointer-events: none;
+    /* Solid through whole header, fade out only below header */
+    -webkit-mask-image: linear-gradient(to bottom, black var(--header-fade-start), transparent 100%);
+    mask-image: linear-gradient(to bottom, black var(--header-fade-start), transparent 100%);
+}
+
+/* Dedicated unmasked shadow element \u2014 sits below blur layer, above content.
+   Needs its own element because mask-image on .top-header / .top-header-blur clips box-shadow. */
+.top-header-shadow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-height);
+    z-index: 998;
+    pointer-events: none;
+    box-shadow: var(--header-shadow);
+}
+
+/* Semi-transparent cream bg */
 .top-header::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: var(--bg-header);
+    background: rgba(255, 252, 240, var(--header-bg-opacity));
     z-index: -2;
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(var(--header-height) - 12px), transparent calc(var(--header-height) + 10px));
-    mask-image: linear-gradient(to bottom, black 0%, black calc(var(--header-height) - 12px), transparent calc(var(--header-height) + 10px));
 }
 
 .header-clouds {
     position: absolute;
-    top: -20px;
-    left: -20px;
-    right: -20px;
+    top: 0;
+    left: 0;
+    right: 0;
     bottom: 0;
     pointer-events: none;
     overflow: hidden;
     z-index: -1;
-    filter: url(#turb-overall);
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(var(--header-height) - 8px), transparent calc(var(--header-height) + 15px));
-    mask-image: linear-gradient(to bottom, black 0%, black calc(var(--header-height) - 8px), transparent calc(var(--header-height) + 15px));
+    opacity: var(--header-cloud-opacity);
 }
 
-.header-cloud {
-    position: absolute;
-    inset: -12px -20px;
-    pointer-events: none;
+.header-clouds canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
 }
 
-.cloud-beige {
-    background: radial-gradient(ellipse 75% 160% at 50% 50%,
-        rgba(255, 240, 200, 0.5) 0%,
-        rgba(255, 240, 200, 0.3) 45%,
-        rgba(255, 240, 200, 0.15) 75%,
-        transparent 100%);
-    background-size: 165% 165%;
-    animation: cloud-drift-beige 12s ease-in-out infinite;
-    filter: url(#turb-beige);
-}
-
-.cloud-pink {
-    background: radial-gradient(ellipse 28% 140% at 22% 50%,
-        rgba(255, 140, 175, 1) 0%,
-        rgba(255, 140, 175, 0.7) 28%,
-        rgba(255, 140, 175, 0.3) 50%,
-        transparent 70%);
-    background-size: 200% 200%;
-    animation: cloud-drift-pink 9s ease-in-out infinite;
-    filter: url(#turb-pink);
-}
-
-.cloud-orange {
-    background: radial-gradient(ellipse 26% 140% at 55% 50%,
-        rgba(255, 175, 115, 1) 0%,
-        rgba(255, 175, 115, 0.7) 28%,
-        rgba(255, 175, 115, 0.3) 50%,
-        transparent 70%);
-    background-size: 200% 200%;
-    animation: cloud-drift-orange 10s ease-in-out infinite;
-    filter: url(#turb-orange);
-}
-
-.cloud-cyan {
-    background: radial-gradient(ellipse 26% 140% at 82% 50%,
-        rgba(100, 210, 230, 1) 0%,
-        rgba(100, 210, 230, 0.7) 28%,
-        rgba(100, 210, 230, 0.3) 50%,
-        transparent 70%);
-    background-size: 200% 200%;
-    animation: cloud-drift-cyan 8s ease-in-out infinite;
-    filter: url(#turb-cyan);
-}
 
 .top-header > *:not(.header-clouds) {
     position: relative;
     z-index: 1;
-}
-
-@keyframes cloud-drift-beige {
-    0%, 100% { background-position: 20% 40%; }
-    25%      { background-position: 70% 60%; }
-    50%      { background-position: 80% 35%; }
-    75%      { background-position: 30% 65%; }
-}
-@keyframes cloud-drift-pink {
-    0%, 100% { background-position: 15% 30%; }
-    25%      { background-position: 65% 70%; }
-    50%      { background-position: 80% 25%; }
-    75%      { background-position: 10% 65%; }
-}
-@keyframes cloud-drift-orange {
-    0%, 100% { background-position: 85% 70%; }
-    25%      { background-position: 30% 25%; }
-    50%      { background-position: 90% 30%; }
-    75%      { background-position: 20% 75%; }
-}
-@keyframes cloud-drift-cyan {
-    0%, 100% { background-position: 30% 30%; }
-    25%      { background-position: 80% 75%; }
-    50%      { background-position: 15% 60%; }
-    75%      { background-position: 85% 25%; }
 }
 
 .header-left {
@@ -243,22 +222,36 @@ body {
 /* App Layout */
 #app {
     display: flex;
-    padding-top: var(--header-height);
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* Sidebar */
 .sidebar {
     position: fixed;
     left: 0;
-    top: var(--header-height);
+    top: 0;
     width: var(--sidebar-width);
-    height: calc(100vh - var(--header-height));
+    height: 100vh;
+    z-index: 2;
     background: var(--bg-sidebar);
-    border-right: 1px solid var(--border-color);
+    border-right: 1px solid var(--sidebar-border-color);
+    box-shadow: var(--sidebar-shadow);
     overflow-y: auto;
-    padding: 1rem 0;
+    /* Top padding leaves space for header (sidebar extends under it) */
+    padding: calc(var(--header-height) + 1rem) 0 1rem 0;
 }
+
+/* Sidebar scrollbar (separately themeable from page scrollbar) */
+.sidebar::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+}
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--sidebar-scrollbar-thumb-color);
+    border-radius: var(--scrollbar-thumb-radius);
+}
+.sidebar::-webkit-scrollbar-thumb:hover { background: var(--sidebar-scrollbar-thumb-hover-color); }
 
 .main-nav {
     padding: 0;
@@ -294,7 +287,7 @@ body {
     font-size: 0.875rem;
     line-height: 1.4;
     cursor: pointer;
-    border-radius: 0 0.8em 0.8em 0;
+    border-radius: var(--radius-tab);
     position: relative;
     overflow: visible;
     z-index: 0;
@@ -431,11 +424,13 @@ body {
     flex: 1;
 }
 
-/* Main Content */
+/* Main Content — scroll container so page scrollbar extends full viewport height */
 .main-content {
     flex: 1;
     margin-left: var(--sidebar-width);
-    min-height: calc(100vh - var(--header-height));
+    height: 100vh;
+    padding-top: var(--header-height);
+    overflow-y: auto;
     background: var(--bg-content);
 }
 
@@ -828,9 +823,10 @@ body {
     }
 }
 
-/* Scrollbar */
+/* Page scrollbar */
 ::-webkit-scrollbar {
-    width: 6px;
+    width: var(--scrollbar-width);
+    height: var(--scrollbar-width);
 }
 
 ::-webkit-scrollbar-track {
@@ -838,12 +834,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 3px;
+    background: var(--scrollbar-thumb-color);
+    border-radius: var(--scrollbar-thumb-radius);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #aaa;
+    background: var(--scrollbar-thumb-hover-color);
 }
 
 /* PDF Viewer */
