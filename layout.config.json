@@ -6,7 +6,7 @@
     "cloudOpacity": 0.85,
     "fadeStart": "80%",
     "fadeExtend": "16px",
-    "shadow": "0 8px 24px rgba(0, 0, 0, 0.12)"
+    "shadow": "0 8px 24px rgba(0, 0, 0, 0)"
   },
 
   "sidebar": {
