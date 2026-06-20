@@ -78,7 +78,7 @@ vec4 foreground(vec2 uv, float t){
     
     // c13
     
-    midlevel = 0.05;
+    midlevel = 0.05 - 30.0 / iResolution.y;
     disp = 1.7;
     dist = 2.0;
     uv2 = uv + vec2(t/dist + 38.0, 0.0);
@@ -238,8 +238,10 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     // Sea is composited before the bridge and before foreground clouds, so the
     // bridge stays in front while nearby cloud banks can intermittently hide it.
     float seaMask = step(uv.y, 0.24);
-    vec3 sea = mix(vec3(0.01, 0.10, 0.44), vec3(0.28, 0.66, 0.96), smoothstep(0.17, 0.24, uv.y));
+    vec3 sea = mix(vec3(0.01, 0.10, 0.44), vec3(0.28, 0.66, 0.96), smoothstep(0.215, 0.24, uv.y));
     col = mix(col, sea, seaMask);
+    float seaRim = 1.0 - smoothstep(0.0, 0.002, abs(uv.y - 0.24));
+    col = mix(col, vec3(0.25, 0.86, 1.0), seaRim);
     // train /////////////////////////////////////////////////////////////////////
     float k;
     float midlevel;

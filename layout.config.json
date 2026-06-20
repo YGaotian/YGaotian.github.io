@@ -1,7 +1,7 @@
 {
   "header": {
     "height": "84px",
-    "blurRadius": "1.5px",
+    "blurRadius": "2px",
     "bgOpacity": 0,
     "cloudOpacity": 0.2,
     "offsetX": "12px",
@@ -14,7 +14,7 @@
       "edgeFalloffPower": 0.6,
       "reflectThickness": 12,
       "reflectFalloffPower": 0.25,
-      "refFactor": 1.77,
+      "refFactor": 1.9,
       "refScale": 1.4,
       "dispersionGain": 20,
       "glassAlpha": 1,
@@ -47,7 +47,7 @@
       "shadowStrength": 0.17,
       "refFresnelRange": 30,
       "refFresnelFactor": 4,
-      "glareFactor": 16
+      "glareFactor": 42
     }
   },
 

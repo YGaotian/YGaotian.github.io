@@ -12,13 +12,13 @@
     "searchBoxTextColor": "rgba(80, 80, 80, 1)",
     "searchBoxIconColor": "rgba(100, 100, 100, 1)",
     "sidebarBgColor": "#8EBCC5",
-    "sidebarGroupTitleColor": "#F8F8F8",
-    "sidebarItemColor": "#585555",
-    "sidebarItemActiveColor": "#F6F0D5",
+    "sidebarGroupTitleColor": "#EAF5FF",
+    "sidebarItemColor": "#D7E8FF",
+    "sidebarItemActiveColor": "#26384D",
     "sidebarItemActiveBgColor": "rgba(255, 75, 138, 0.61)",
     "contentBgColor": "#678080",
-    "contentTextColor": "#ECE5BD",
-    "linkColor": "#B7D0FD",
+    "contentTextColor": "#182638",
+    "linkColor": "#294E84",
     "sidebarBorderColor": "rgba(0, 0, 0, 0)",
     "scrollbarThumbColor": "#FFFFFF",
     "scrollbarThumbHoverColor": "#FDD97F",
@@ -27,10 +27,10 @@
   },
 
   "cloudColors": {
-    "color1": "#47E7FF",
-    "color2": "#FF5C6F",
-    "color3": "#67FF9A",
-    "color4": "#FFD35A"
+    "color1": "#278BFF",
+    "color2": "#FF6B7A",
+    "color3": "#35D777",
+    "color4": "#2D6CFF"
   },
 
   "favicon": "assets/favicon.ico"

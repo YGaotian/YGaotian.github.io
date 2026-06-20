@@ -233,7 +233,7 @@ class CloudRenderer {
         this.params = {
             speed: 1.0,
             orbitRadius: 0.35,
-            sharpness: 18.0,
+            sharpness: 4.5,
             warpScale: 1.0,
             detail: 1.0
         };

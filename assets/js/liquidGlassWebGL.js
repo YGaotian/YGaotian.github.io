@@ -83,15 +83,24 @@ vec4 sampleBackground(vec2 screenPx, float blurPx) {
     vec2 renderedSize = u_backgroundImageSize * coverScale;
     vec2 offset = (u_canvasSize - renderedSize) * 0.5;
     vec2 uv = clamp((screenPx - offset) / renderedSize, vec2(0.0), vec2(1.0));
-    vec2 blurTexel = vec2(max(blurPx, 0.0)) / renderedSize;
-    vec3 background = texture(u_backgroundTex, uv).rgb * 0.40;
-    background += texture(u_backgroundTex, clamp(uv + vec2(blurTexel.x, 0.0), 0.0, 1.0)).rgb * 0.15;
-    background += texture(u_backgroundTex, clamp(uv - vec2(blurTexel.x, 0.0), 0.0, 1.0)).rgb * 0.15;
-    background += texture(u_backgroundTex, clamp(uv + vec2(0.0, blurTexel.y), 0.0, 1.0)).rgb * 0.15;
-    background += texture(u_backgroundTex, clamp(uv - vec2(0.0, blurTexel.y), 0.0, 1.0)).rgb * 0.15;
+    vec2 blurTexel = vec2(max(blurPx, 0.75)) / renderedSize;
+    // Dense 15×15 Gaussian kernel for the high-radius sidebar glass blur.
+    // cross artefacts when the blur radius was increased.
+    vec3 background = vec3(0.0);
+    float totalWeight = 0.0;
+    blurTexel *= 0.14285715;
+    for (int y = -7; y <= 7; y++) {
+        for (int x = -7; x <= 7; x++) {
+            float distanceSquared = float(x * x + y * y);
+            float weight = exp(-distanceSquared * 0.08163265);
+            vec2 offset = vec2(float(x), float(y)) * blurTexel;
+            background += texture(u_backgroundTex, clamp(uv + offset, 0.0, 1.0)).rgb * weight;
+            totalWeight += weight;
+        }
+    }
+    background /= totalWeight;
     float luminance = dot(background, vec3(0.2126, 0.7152, 0.0722));
     background = mix(vec3(luminance), background, 0.62);
-    background = mix(background, vec3(0.929, 0.957, 0.949), 0.30);
     return vec4(background, 1.0);
 }
 
@@ -179,6 +188,8 @@ void main() {
     float fresnelGain = optics3.x;
     float glareGain = optics3.y;
     float glassAlpha = optics3.z;
+    float sidebarRimGain = optics3.w;
+    float sidebarRimLength = u_headerOptics3.w;
     float backgroundBlur = mix(u_headerBackgroundBlur, u_sidebarBackgroundBlur, useSidebar);
     float inside = -sdf;
     vec2 normal = rectNormal(screenPx, targetOrigin, targetSize);
@@ -200,6 +211,14 @@ void main() {
 
     vec4 color = vec4(mix(baseColor.rgb, reflectionColor.rgb, clamp(reflectionAlpha, 0.0, 1.0)), 1.0);
 
+    // The sidebar deliberately uses a dark glass treatment. The header is
+    // left untinted so the edge animation is seen through clear glass.
+    if (useSidebar > 0.5) {
+        color.rgb = mix(color.rgb, vec3(0.075, 0.105, 0.145), 0.22);
+    } else {
+        color.rgb = min(color.rgb * 1.16, vec3(1.0));
+    }
+
     color.rgb = mix(color.rgb, u_tint.rgb, u_tint.a);
 
     float fresnel = pow(1.0 - smoothstep(0.0, fresnelRange, inside), 3.0) * fresnelGain;
@@ -209,6 +228,14 @@ void main() {
     float glare = pow(clamp(0.5 + sin(glareAngle) * 0.5, 0.0, 1.0), 1.2);
     glare *= pow(1.0 - smoothstep(0.0, refThickness * 1.25, inside), 2.0);
     color.rgb += vec3(0.22, 0.44, 0.58) * glare * glareGain;
+
+    // Directional, partial sidebar rim highlight.  It follows the rounded
+    // rectangle normal and is deliberately limited to a narrow angled arc.
+    if (useSidebar > 0.5) {
+        float sidebarRim = pow(clamp(0.5 + sin(glareAngle) * 0.5, 0.0, 1.0), sidebarRimLength);
+        sidebarRim *= pow(1.0 - smoothstep(0.0, 5.0, inside), 2.0);
+        color.rgb += vec3(0.42, 0.72, 1.0) * sidebarRim * sidebarRimGain;
+    }
 
     float shapeAlpha = 1.0 - smoothstep(-1.0, 1.0, sdf);
     fragColor = vec4(color.rgb, shapeAlpha);
@@ -248,9 +275,11 @@ void main() {
                 fresnelGain: 0,
                 glareGain: 0.1,
                 glareAngle: -Math.PI / 4,
-                tint: [1, 1, 1, 0.02]
+                tint: [1, 1, 1, 0]
             };
             this.sidebarConfig = { ...this.config };
+            this.sidebarConfig.rimGain = 0.72;
+            this.sidebarConfig.rimLength = 5.0;
         }
 
         async init() {
@@ -329,6 +358,8 @@ void main() {
                     fresnelRange: numeric(sidebarGlass.refFresnelRange, this.config.fresnelRange),
                     fresnelGain: numeric(sidebarGlass.refFresnelFactor, this.config.fresnelGain * 100) / 100,
                     glareGain: numeric(sidebarGlass.glareFactor, this.config.glareGain * 100) / 100
+                    ,rimGain: numeric(sidebarGlass.rimGain, this.sidebarConfig.rimGain)
+                    ,rimLength: numeric(sidebarGlass.rimLength, this.sidebarConfig.rimLength)
                 });
             } catch (error) {
                 console.warn('Could not load liquid glass config:', error);
@@ -454,17 +485,20 @@ void main() {
                 this.render();
             });
             bind('glass-alpha', header, 'glassAlpha', 2, () => this.render());
+            bind('glass-glare-angle', header, 'glareAngle', 2, () => this.render());
             this.setupSidebarControls(bind);
         }
 
         setupSidebarControls(bind) {
             const panel = document.getElementById('glass-control');
-            if (!panel || panel.querySelector('.glass-control-section')) return;
+            if (!panel || panel.querySelector('#sidebar-glass-ref-factor')) return;
             const headerSection = document.createElement('section');
             headerSection.className = 'glass-control-section';
             headerSection.innerHTML = '<h2>Header</h2>';
-            [...panel.children].forEach(node => headerSection.appendChild(node));
-            panel.appendChild(headerSection);
+            [...panel.children]
+                .filter(node => !node.classList.contains('glass-control-section'))
+                .forEach(node => headerSection.appendChild(node));
+            panel.insertBefore(headerSection, panel.firstChild);
 
             const fields = [
                 ['ref-factor', 'Refraction', 1.01, 2.20, 0.01, 'refFactor', 2],
@@ -476,8 +510,10 @@ void main() {
                 ['fresnel-gain', 'Fresnel', 0, 1, 0.01, 'fresnelGain', 2],
                 ['glare-gain', 'Highlight', 0, 1, 0.01, 'glareGain', 2],
                 ['shadow-gain', 'Shadow', 0, 0.4, 0.01, 'shadowStrength', 2],
-                ['blur-radius', 'Blur', 0, 12, 0.5, 'blurRadius', 1],
-                ['alpha', 'Reflect Alpha', 0, 1, 0.01, 'glassAlpha', 2]
+                ['blur-radius', 'Blur', 0, 40, 0.5, 'blurRadius', 1],
+                ['alpha', 'Reflect Alpha', 0, 1, 0.01, 'glassAlpha', 2],
+                ['rim-gain', 'Rim Glare', 0, 1.5, 0.01, 'rimGain', 2],
+                ['rim-length', 'Rim Length', 1, 12, 0.1, 'rimLength', 1]
             ];
             const sidebarSection = document.createElement('section');
             sidebarSection.className = 'glass-control-section';
@@ -718,8 +754,9 @@ void main() {
 
         render() {
             if (!this.gl || !this.program) return;
-            cancelAnimationFrame(this.raf);
+            if (this.raf) return;
             this.raf = requestAnimationFrame(() => {
+                this.raf = null;
                 const gl = this.gl;
                 const headerRect = this.header.getBoundingClientRect();
                 const mainRect = this.main.getBoundingClientRect();
@@ -782,7 +819,7 @@ void main() {
                 const setOptics = (prefix, config) => {
                     gl.uniform4f(this.uniforms[`${prefix}Optics1`], config.refThickness, config.refFactor, config.refScale, config.dispersionGain);
                     gl.uniform4f(this.uniforms[`${prefix}Optics2`], config.edgeFalloffPower, config.reflectThickness, config.reflectFalloffPower, config.fresnelRange);
-                    gl.uniform4f(this.uniforms[`${prefix}Optics3`], config.fresnelGain, config.glareGain, config.glassAlpha, 0);
+                    gl.uniform4f(this.uniforms[`${prefix}Optics3`], config.fresnelGain, config.glareGain, config.glassAlpha, prefix === 'u_sidebar' ? config.rimGain : this.sidebarConfig.rimLength);
                 };
                 setOptics('u_header', this.config);
                 setOptics('u_sidebar', this.sidebarConfig);

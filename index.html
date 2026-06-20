@@ -16,6 +16,7 @@
     <!-- Top Header Bar -->
     <canvas id="header-glass-webgl" class="header-glass-webgl" aria-hidden="true"></canvas>
     <header id="top-header" class="top-header">
+        <div class="header-clouds" aria-hidden="true"></div>
         <div class="header-left">
             <a href="#" class="site-logo" id="site-logo-link">
                 <span class="logo-icon">T</span>
@@ -64,6 +65,9 @@
         <label for="glass-alpha">Reflect Alpha</label>
         <input id="glass-alpha" type="range" min="0" max="1" step="0.01" value="1.00">
         <output id="glass-alpha-value">1.00</output>
+        <label for="glass-glare-angle">Glare Angle</label>
+        <input id="glass-glare-angle" type="range" min="-3.14" max="3.14" step="0.01" value="-0.79">
+        <output id="glass-glare-angle-value">-0.79</output>
     </div>
 
     <div id="app">
@@ -114,6 +118,7 @@
     <script src="assets/js/html2canvas.min.js?v=1.4.1"></script>
     <script src="assets/js/shaderBackgroundExact.js?v=train-shader-2"></script>
     <script src="assets/js/liquidGlassWebGL.js?v=studio-webgl-51"></script>
+    <script src="assets/js/clouds.js?v=cloud-overlay-1"></script>
     <script src="assets/js/site.js?v=liquid-glass-studio-5"></script>
 </body>
 </html>
