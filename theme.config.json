@@ -27,10 +27,10 @@
   },
 
   "cloudColors": {
-    "color1": "rgba(191, 230, 255, 1)",
-    "color2": "rgba(246, 205, 205, 1)",
-    "color3": "rgba(172, 245, 180, 1)",
-    "color4": "#FAF0C9"
+    "color1": "#47E7FF",
+    "color2": "#FF5C6F",
+    "color3": "#67FF9A",
+    "color4": "#FFD35A"
   },
 
   "favicon": "assets/favicon.ico"

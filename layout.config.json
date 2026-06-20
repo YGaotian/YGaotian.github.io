@@ -1,17 +1,54 @@
 {
   "header": {
-    "height": "76px",
-    "blurRadius": "12px",
-    "bgOpacity": 0.3,
-    "cloudOpacity": 0.85,
-    "fadeStart": "80%",
-    "fadeExtend": "16px",
-    "shadow": "0 8px 24px rgba(0, 0, 0, 0)"
+    "height": "84px",
+    "blurRadius": "1.5px",
+    "bgOpacity": 0,
+    "cloudOpacity": 0.2,
+    "offsetX": "12px",
+    "offsetY": "8px",
+    "glassHeight": "56px",
+    "radius": "22px",
+    "shadow": "0 10px 28px rgba(20, 24, 28, 0.16)",
+    "glass": {
+      "refThickness": 23,
+      "edgeFalloffPower": 0.6,
+      "reflectThickness": 12,
+      "reflectFalloffPower": 0.25,
+      "refFactor": 1.77,
+      "refScale": 1.4,
+      "dispersionGain": 20,
+      "glassAlpha": 1,
+      "shadowStrength": 0.2,
+      "sampleOffsetX": 0,
+      "sampleOffsetY": 0,
+      "mainTextureAlignX": 8,
+      "mainTextureAlignY": 0,
+      "sidebarTextureAlignX": 0,
+      "sidebarTextureAlignY": 0,
+      "refFresnelRange": 30,
+      "refFresnelFactor": 0,
+      "glareFactor": 10
+    }
   },
 
   "sidebar": {
     "width": "260px",
-    "shadow": "10px 0 30px rgba(0, 0, 0, 0.1)"
+    "shadow": "10px 0 30px rgba(0, 0, 0, 0.1)",
+    "blurRadius": "2.5px",
+    "glass": {
+      "refThickness": 28,
+      "edgeFalloffPower": 0.45,
+      "reflectThickness": 25,
+      "reflectFalloffPower": 1.05,
+      "refFactor": 1.58,
+      "refScale": 1.4,
+      "dispersionGain": 20,
+      "glassAlpha": 1,
+      "shadowStrength": 0.17,
+      "refFresnelRange": 30,
+      "refFresnelFactor": 4,
+      "glareFactor": 16
+    }
   },
 
   "borderRadius": {
@@ -26,13 +63,5 @@
   "scrollbar": {
     "width": "12px",
     "thumbRadius": "6px"
-  },
-
-  "clouds": {
-    "speed": 1.5,
-    "orbitRadius": 0.75,
-    "sharpness": 22.0,
-    "warpScale": 1.7,
-    "detail": 1.8
   }
 }

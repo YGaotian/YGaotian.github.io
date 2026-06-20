@@ -20,7 +20,10 @@ class SiteApp {
             this.buildSearchIndex();
         } catch (error) {
             console.error('Init failed:', error);
-            this.showError('Failed to load site');
+            const message = window.location.protocol === 'file:'
+                ? 'Cannot load site files from file://. Start a local web server and open the localhost URL.'
+                : `Failed to load site: ${error.message}`;
+            this.showError(message);
         }
     }
 
@@ -531,9 +534,12 @@ class SiteApp {
             set('--header-blur', layout.header.blurRadius);
             set('--header-bg-opacity', layout.header.bgOpacity);
             set('--header-cloud-opacity', layout.header.cloudOpacity);
-            set('--header-fade-start', layout.header.fadeStart);
-            set('--header-fade-extend', layout.header.fadeExtend);
+            set('--header-offset-x', layout.header.offsetX);
+            set('--header-offset-y', layout.header.offsetY);
+            set('--header-glass-height', layout.header.glassHeight);
+            set('--header-radius', layout.header.radius);
             set('--header-shadow', layout.header.shadow);
+
         }
         if (layout.sidebar) {
             set('--sidebar-width', layout.sidebar.width);

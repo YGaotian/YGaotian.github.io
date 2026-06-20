@@ -9,12 +9,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/gruvbox-dark-medium.min.css">
-    <link rel="stylesheet" href="assets/css/gitbook-style.css">
+    <link rel="stylesheet" href="assets/css/gitbook-style.css?v=glass-ui-49">
 </head>
 <body>
+    <canvas id="shader-background" class="shader-background" aria-hidden="true"></canvas>
     <!-- Top Header Bar -->
+    <canvas id="header-glass-webgl" class="header-glass-webgl" aria-hidden="true"></canvas>
     <header id="top-header" class="top-header">
-        <div class="header-clouds" aria-hidden="true"></div>
         <div class="header-left">
             <a href="#" class="site-logo" id="site-logo-link">
                 <span class="logo-icon">T</span>
@@ -29,8 +30,41 @@
             </button>
         </div>
     </header>
-    <div class="top-header-blur"></div>
-    <div class="top-header-shadow" aria-hidden="true"></div>
+    <div id="glass-control" class="glass-control">
+        <label for="glass-ref-factor">Refraction</label>
+        <input id="glass-ref-factor" type="range" min="1.01" max="2.20" step="0.01" value="1.77">
+        <output id="glass-ref-factor-value">1.77</output>
+        <label for="glass-ref-thickness">Stretch Width</label>
+        <input id="glass-ref-thickness" type="range" min="4" max="64" step="1" value="23">
+        <output id="glass-ref-thickness-value">23</output>
+        <label for="glass-edge-falloff">Stretch Falloff</label>
+        <input id="glass-edge-falloff" type="range" min="0.15" max="2" step="0.05" value="0.60">
+        <output id="glass-edge-falloff-value">0.60</output>
+        <label for="glass-reflect-thickness">Reflect Width</label>
+        <input id="glass-reflect-thickness" type="range" min="2" max="48" step="1" value="12">
+        <output id="glass-reflect-thickness-value">12</output>
+        <label for="glass-reflect-falloff">Reflect Falloff</label>
+        <input id="glass-reflect-falloff" type="range" min="0.25" max="4" step="0.05" value="0.25">
+        <output id="glass-reflect-falloff-value">0.25</output>
+        <label for="glass-dispersion-gain">Dispersion</label>
+        <input id="glass-dispersion-gain" type="range" min="0" max="20" step="0.1" value="20.0">
+        <output id="glass-dispersion-gain-value">20.0</output>
+        <label for="glass-fresnel-gain">Fresnel</label>
+        <input id="glass-fresnel-gain" type="range" min="0" max="1" step="0.01" value="0.00">
+        <output id="glass-fresnel-gain-value">0.00</output>
+        <label for="glass-glare-gain">Highlight</label>
+        <input id="glass-glare-gain" type="range" min="0" max="1" step="0.01" value="0.10">
+        <output id="glass-glare-gain-value">0.10</output>
+        <label for="glass-shadow-gain">Shadow</label>
+        <input id="glass-shadow-gain" type="range" min="0" max="0.4" step="0.01" value="0.20">
+        <output id="glass-shadow-gain-value">0.20</output>
+        <label for="glass-blur-radius">Blur</label>
+        <input id="glass-blur-radius" type="range" min="0" max="12" step="0.5" value="1.5">
+        <output id="glass-blur-radius-value">1.5</output>
+        <label for="glass-alpha">Reflect Alpha</label>
+        <input id="glass-alpha" type="range" min="0" max="1" step="0.01" value="1.00">
+        <output id="glass-alpha-value">1.00</output>
+    </div>
 
     <div id="app">
         <!-- Left Sidebar -->
@@ -77,7 +111,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
-    <script src="assets/js/clouds.js"></script>
-    <script src="assets/js/site.js"></script>
+    <script src="assets/js/html2canvas.min.js?v=1.4.1"></script>
+    <script src="assets/js/shaderBackgroundExact.js?v=train-shader-2"></script>
+    <script src="assets/js/liquidGlassWebGL.js?v=studio-webgl-51"></script>
+    <script src="assets/js/site.js?v=liquid-glass-studio-5"></script>
 </body>
 </html>

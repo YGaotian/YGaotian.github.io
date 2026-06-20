@@ -165,7 +165,10 @@ void main() {
 class CloudRenderer {
     constructor(canvas) {
         this.canvas = canvas;
-        const gl = canvas.getContext('webgl', { alpha: false });
+        const gl = canvas.getContext('webgl', {
+            alpha: true,
+            premultipliedAlpha: false
+        });
         if (!gl) {
             console.warn('WebGL not supported, falling back to static background');
             return;
@@ -282,7 +285,7 @@ class CloudRenderer {
         gl.uniform1f(this.uWarpScale, p.warpScale);
         gl.uniform1f(this.uDetail, p.detail);
         gl.uniform1f(this.uOrbitRadius, p.orbitRadius);
-        gl.clearColor(1.0, 0.98, 0.94, 1.0); // cream — no black ever
+        gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         this.animFrame = requestAnimationFrame(this.animate);
