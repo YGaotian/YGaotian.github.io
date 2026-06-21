@@ -224,14 +224,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec2 uv = fragCoord/iResolution.y;
     //uv.x += iTime;
-    float t = iTime*4.0;
+    float t = iTime*1.2;
     vec4 bg = background(uv, t);
     
     vec4 fg = vec4(0.);
     int n = 5;
     if (uv.y < 0.5)
     for (int i = 0; i < n; i++){
-        fg += foreground(uv, t+4.*float(i)/float(n)/60.) / (float(n));
+        fg += foreground(uv, t+1.2*float(i)/float(n)/60.) / (float(n));
     }
     
     vec3 col = bg.rgb;

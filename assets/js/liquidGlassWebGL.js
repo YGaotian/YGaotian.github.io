@@ -55,6 +55,8 @@ uniform vec4 u_sidebarOptics2;
 uniform vec4 u_sidebarOptics3;
 uniform float u_glareAngle;
 uniform vec4 u_tint;
+uniform vec3 u_sidebarGlassColor;
+uniform vec3 u_sidebarGlareColor;
 
 const float PI = 3.14159265359;
 const float N_R = 0.98;
@@ -99,8 +101,6 @@ vec4 sampleBackground(vec2 screenPx, float blurPx) {
         }
     }
     background /= totalWeight;
-    float luminance = dot(background, vec3(0.2126, 0.7152, 0.0722));
-    background = mix(vec3(luminance), background, 0.62);
     return vec4(background, 1.0);
 }
 
@@ -135,7 +135,9 @@ vec4 sampleSceneWithMode(vec2 screenPx, float excludeSidebarContent, float blurP
         vec2 local = vec2(screenPx.x - u_mainRectPos.x, screenPx.y - u_mainRectPos.y + u_mainScrollTop) + u_mainTexAlign;
         vec2 uv = local / u_mainTexSize;
         if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
-            return compositeOverBackground(texture(u_mainTex, uv), screenPx, blurPx);
+            vec4 mainScene = compositeOverBackground(texture(u_mainTex, uv), screenPx, blurPx);
+            float mainEdgeBlend = smoothstep(u_mainRectPos.x, u_mainRectPos.x + 28.0, screenPx.x);
+            return mix(sampleBackground(screenPx, blurPx), mainScene, mainEdgeBlend);
         }
         return sampleBackground(screenPx, blurPx);
     }
@@ -214,9 +216,7 @@ void main() {
     // The sidebar deliberately uses a dark glass treatment. The header is
     // left untinted so the edge animation is seen through clear glass.
     if (useSidebar > 0.5) {
-        color.rgb = mix(color.rgb, vec3(0.075, 0.105, 0.145), 0.22);
-    } else {
-        color.rgb = min(color.rgb * 1.16, vec3(1.0));
+        color.rgb = mix(color.rgb, u_sidebarGlassColor, 0.22);
     }
 
     color.rgb = mix(color.rgb, u_tint.rgb, u_tint.a);
@@ -229,12 +229,18 @@ void main() {
     glare *= pow(1.0 - smoothstep(0.0, refThickness * 1.25, inside), 2.0);
     color.rgb += vec3(0.22, 0.44, 0.58) * glare * glareGain;
 
+    if (useSidebar < 0.5) {
+        float headerRim = pow(clamp(0.5 + sin(glareAngle) * 0.5, 0.0, 1.0), 3.0);
+        headerRim *= pow(1.0 - smoothstep(0.0, 4.0, inside), 2.0);
+        color.rgb += vec3(0.58, 0.82, 1.0) * headerRim * glareGain * 1.8;
+    }
+
     // Directional, partial sidebar rim highlight.  It follows the rounded
     // rectangle normal and is deliberately limited to a narrow angled arc.
     if (useSidebar > 0.5) {
         float sidebarRim = pow(clamp(0.5 + sin(glareAngle) * 0.5, 0.0, 1.0), sidebarRimLength);
         sidebarRim *= pow(1.0 - smoothstep(0.0, 5.0, inside), 2.0);
-        color.rgb += vec3(0.42, 0.72, 1.0) * sidebarRim * sidebarRimGain;
+        color.rgb += u_sidebarGlareColor * sidebarRim * sidebarRimGain;
     }
 
     float shapeAlpha = 1.0 - smoothstep(-1.0, 1.0, sdf);
@@ -280,6 +286,8 @@ void main() {
             this.sidebarConfig = { ...this.config };
             this.sidebarConfig.rimGain = 0.72;
             this.sidebarConfig.rimLength = 5.0;
+            this.sidebarConfig.glassColor = [0.075, 0.105, 0.145];
+            this.sidebarConfig.glareColor = [0.42, 0.72, 1.0];
         }
 
         async init() {
@@ -317,6 +325,11 @@ void main() {
                     const number = Number(value);
                     return Number.isFinite(number) ? number : fallback;
                 };
+                const color = (value, fallback) => {
+                    if (!/^#[0-9a-f]{6}$/i.test(value || '')) return fallback;
+                    const n = parseInt(value.slice(1), 16);
+                    return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+                };
                 Object.assign(this.config, {
                     refThickness: numeric(glass.refThickness, this.config.refThickness),
                     edgeFalloffPower: numeric(glass.edgeFalloffPower, this.config.edgeFalloffPower),
@@ -342,7 +355,8 @@ void main() {
                     ],
                     fresnelRange: numeric(glass.refFresnelRange, this.config.fresnelRange),
                     fresnelGain: numeric(glass.refFresnelFactor, 22) / 100,
-                    glareGain: numeric(glass.glareFactor, 38) / 100
+                    glareGain: numeric(glass.glareFactor, 38) / 100,
+                    glareAngle: numeric(glass.glareAngle, this.config.glareAngle)
                 });
                 Object.assign(this.sidebarConfig, {
                     refThickness: numeric(sidebarGlass.refThickness, this.config.refThickness),
@@ -360,7 +374,10 @@ void main() {
                     glareGain: numeric(sidebarGlass.glareFactor, this.config.glareGain * 100) / 100
                     ,rimGain: numeric(sidebarGlass.rimGain, this.sidebarConfig.rimGain)
                     ,rimLength: numeric(sidebarGlass.rimLength, this.sidebarConfig.rimLength)
+                    ,glassColor: color(sidebarGlass.glassColor, this.sidebarConfig.glassColor)
+                    ,glareColor: color(sidebarGlass.glareColor, this.sidebarConfig.glareColor)
                 });
+                if (sidebarGlass.textColor) document.documentElement.style.setProperty('--sidebar-item-color', sidebarGlass.textColor);
             } catch (error) {
                 console.warn('Could not load liquid glass config:', error);
             }
@@ -413,7 +430,7 @@ void main() {
                 'u_sidebarScrollTop', 'u_mainScrollTop', 'u_mainBg', 'u_sidebarBg',
                 'u_radius', 'u_headerOptics1', 'u_headerOptics2', 'u_headerOptics3',
                 'u_sidebarOptics1', 'u_sidebarOptics2', 'u_sidebarOptics3',
-                'u_glareAngle', 'u_tint'
+                'u_glareAngle', 'u_tint', 'u_sidebarGlassColor', 'u_sidebarGlareColor'
             ].forEach(name => {
                 this.uniforms[name] = gl.getUniformLocation(program, name);
             });
@@ -529,6 +546,17 @@ void main() {
                     this.render();
                 });
             });
+            const toHex = value => `#${value.map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`;
+            const addColor = (suffix, label, value, onInput) => {
+                const title = document.createElement('label'); title.htmlFor = `sidebar-${suffix}`; title.textContent = label;
+                const input = document.createElement('input'); input.type = 'color'; input.id = `sidebar-${suffix}`; input.value = value;
+                const output = document.createElement('output'); output.textContent = value;
+                input.addEventListener('input', () => { const hex=input.value; const n=parseInt(hex.slice(1),16); onInput([(n>>16&255)/255,(n>>8&255)/255,(n&255)/255]); output.textContent=hex; this.render(); });
+                sidebarSection.append(title, input, output);
+            };
+            addColor('glass-color', 'Glass Color', toHex(this.sidebarConfig.glassColor), value => { this.sidebarConfig.glassColor = value; });
+            addColor('glare-color', 'Glare Color', toHex(this.sidebarConfig.glareColor), value => { this.sidebarConfig.glareColor = value; });
+            addColor('text-color', 'Text Color', '#000000', value => { document.documentElement.style.setProperty('--sidebar-item-color', `rgb(${value.map(v=>Math.round(v*255)).join(',')})`); });
         }
 
         bindEvents() {
@@ -825,6 +853,8 @@ void main() {
                 setOptics('u_sidebar', this.sidebarConfig);
                 gl.uniform1f(this.uniforms.u_glareAngle, this.config.glareAngle);
                 gl.uniform4fv(this.uniforms.u_tint, this.config.tint);
+                gl.uniform3fv(this.uniforms.u_sidebarGlassColor, this.sidebarConfig.glassColor);
+                gl.uniform3fv(this.uniforms.u_sidebarGlareColor, this.sidebarConfig.glareColor);
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             });
         }
@@ -836,17 +866,19 @@ void main() {
             let active = false;
             let pending = false;
             let pointer = null;
+            let interactionRect = null;
 
             const reset = () => {
                 active = false;
                 pointer = null;
+                interactionRect = null;
                 target.classList.remove('is-liquid-glass-hover');
                 target.style.setProperty('--glass-drift-x', '0px');
                 target.style.setProperty('--glass-drift-y', '0px');
                 target.style.setProperty('--glass-scale-x', '1');
                 target.style.setProperty('--glass-scale-y', '1');
-                target.style.setProperty('--glass-origin-x', '50%');
-                target.style.setProperty('--glass-origin-y', '50%');
+                target.style.setProperty('--glass-origin-x', options.edgeOnly ? '0%' : '50%');
+                target.style.setProperty('--glass-origin-y', options.edgeOnly ? '0%' : '50%');
                 this.animateGlassGeometry(420);
             };
 
@@ -854,23 +886,42 @@ void main() {
                 pending = false;
                 if (!active || !pointer) return;
 
-                const rect = target.getBoundingClientRect();
+                const rect = interactionRect || target.getBoundingClientRect();
                 const x = Math.max(-1, Math.min(1, (pointer.x - (rect.left + rect.width * 0.5)) / Math.max(rect.width * 0.5, 1)));
                 const y = Math.max(-1, Math.min(1, (pointer.y - (rect.top + rect.height * 0.5)) / Math.max(rect.height * 0.5, 1)));
-                const xStrength = 0.35 + Math.abs(x) * 0.65;
-                const yStrength = 0.35 + Math.abs(y) * 0.65;
-
                 target.classList.add('is-liquid-glass-hover');
-                target.style.setProperty('--glass-drift-x', `${(x * options.driftX).toFixed(2)}px`);
-                target.style.setProperty('--glass-drift-y', `${(y * options.driftY).toFixed(2)}px`);
-                target.style.setProperty('--glass-scale-x', (1 + options.scaleX * xStrength).toFixed(4));
-                target.style.setProperty('--glass-scale-y', (1 + options.scaleY * yStrength).toFixed(4));
-                target.style.setProperty('--glass-origin-x', `${((1 - x) * 50).toFixed(1)}%`);
-                target.style.setProperty('--glass-origin-y', `${((1 - y) * 50).toFixed(1)}%`);
-                this.animateGlassGeometry(420);
+                if (options.edgeOnly) {
+                    const left = Math.max(-x, 0) * options.edgeX;
+                    const right = Math.max(x, 0) * options.edgeX;
+                    const top = Math.max(-y, 0) * options.edgeY;
+                    const bottom = Math.max(y, 0) * options.edgeY;
+                    target.style.setProperty('--glass-drift-x', `${(-left).toFixed(2)}px`);
+                    target.style.setProperty('--glass-drift-y', `${(-top).toFixed(2)}px`);
+                    target.style.setProperty('--glass-scale-x', (1 + (left + right) / rect.width).toFixed(5));
+                    target.style.setProperty('--glass-scale-y', (1 + (top + bottom) / rect.height).toFixed(5));
+                    target.style.setProperty('--glass-origin-x', '0%');
+                    target.style.setProperty('--glass-origin-y', '0%');
+                } else {
+                    const xStrength = 0.35 + Math.abs(x) * 0.65;
+                    const yStrength = 0.35 + Math.abs(y) * 0.65;
+                    target.style.setProperty('--glass-drift-x', `${(x * options.driftX).toFixed(2)}px`);
+                    target.style.setProperty('--glass-drift-y', `${(y * options.driftY).toFixed(2)}px`);
+                    target.style.setProperty('--glass-scale-x', (1 + options.scaleX * xStrength).toFixed(4));
+                    target.style.setProperty('--glass-scale-y', (1 + options.scaleY * yStrength).toFixed(4));
+                    target.style.setProperty('--glass-origin-x', `${((1 - x) * 50).toFixed(1)}%`);
+                    target.style.setProperty('--glass-origin-y', `${((1 - y) * 50).toFixed(1)}%`);
+                }
+                this.animateGlassGeometry(options.duration || 420);
             };
 
             const queueUpdate = event => {
+                if (options.edgeOnly && interactionRect && (
+                    event.clientX < interactionRect.left || event.clientX > interactionRect.right ||
+                    event.clientY < interactionRect.top || event.clientY > interactionRect.bottom
+                )) {
+                    reset();
+                    return;
+                }
                 pointer = { x: event.clientX, y: event.clientY };
                 if (!active || pending) return;
                 pending = true;
@@ -879,6 +930,7 @@ void main() {
 
             target.addEventListener('pointerenter', event => {
                 active = true;
+                interactionRect = target.getBoundingClientRect();
                 queueUpdate(event);
             });
             target.addEventListener('pointermove', queueUpdate, { passive: true });
@@ -887,7 +939,7 @@ void main() {
         };
 
         bindPanel(this.header, { driftX: 2, driftY: 2, scaleX: 0, scaleY: 0.022 });
-        bindPanel(this.sidebar, { driftX: 3, driftY: 3, scaleX: 0.008, scaleY: 0.008 });
+        bindPanel(this.sidebar, { driftX: 0, driftY: 0, scaleX: 0, scaleY: 0, edgeOnly: true, edgeX: 10, edgeY: 10, duration: 760 });
     };
 
     const boot = () => {

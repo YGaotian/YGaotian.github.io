@@ -1,7 +1,7 @@
 {
   "header": {
     "height": "84px",
-    "blurRadius": "2px",
+    "blurRadius": "2.5px",
     "bgOpacity": 0,
     "cloudOpacity": 0.2,
     "offsetX": "12px",
@@ -27,27 +27,33 @@
       "sidebarTextureAlignY": 0,
       "refFresnelRange": 30,
       "refFresnelFactor": 0,
-      "glareFactor": 10
+      "glareFactor": 22,
+      "glareAngle": -0.94
     }
   },
 
   "sidebar": {
     "width": "260px",
     "shadow": "10px 0 30px rgba(0, 0, 0, 0.1)",
-    "blurRadius": "2.5px",
+    "blurRadius": "22px",
     "glass": {
-      "refThickness": 28,
-      "edgeFalloffPower": 0.45,
-      "reflectThickness": 25,
+      "refThickness": 34,
+      "edgeFalloffPower": 0.2,
+      "reflectThickness": 42,
       "reflectFalloffPower": 1.05,
-      "refFactor": 1.58,
+      "refFactor": 1.79,
       "refScale": 1.4,
       "dispersionGain": 20,
       "glassAlpha": 1,
       "shadowStrength": 0.17,
       "refFresnelRange": 30,
-      "refFresnelFactor": 4,
-      "glareFactor": 42
+      "refFresnelFactor": 3,
+      "glareFactor": 28,
+      "rimGain": 0.46,
+      "rimLength": 3.2,
+      "glassColor": "#556d8b",
+      "glareColor": "#666f62",
+      "textColor": "#000000"
     }
   },
 

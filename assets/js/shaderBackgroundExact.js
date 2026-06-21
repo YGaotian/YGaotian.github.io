@@ -20,7 +20,7 @@ in vec2 p; void main(){gl_Position=vec4(p,0.,1.);}`;
     const cloudColors = cloudLayers.flatMap(layer => layer.colors.map((hex, shade) => ({
         id: `${layer.id}-${shade}`, label: `${layer.label} ${shade + 1}`, hex, overridden: true
     })));
-    const backgroundControls = { saturation: 1, contrast: 1, brightness: 1, hue: 0 };
+    const backgroundControls = { saturation: 1.19, contrast: 0.72, brightness: 1.1, hue: 0 };
     const hexToRgb = hex => [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255);
     const makeUniformSource = source => {
         let colorIndex = 0;
@@ -71,7 +71,7 @@ in vec2 p; void main(){gl_Position=vec4(p,0.,1.);}`;
         const output = document.createElement('output'); output.textContent = input.value;
         input.addEventListener('input', () => { document.documentElement.style.setProperty('--text-primary', input.value); output.textContent = input.value; });
         section.append(label, input, output);
-        [['block-color', 'Block Color', 'color', '#eef6ff', '--article-block-bg'], ['block-blur', 'Block Blur', 'range', '14', '--article-block-blur']].forEach(([id, text, type, value, variable]) => {
+        [['block-color', 'Block Color', 'color', '#ffffff', '--article-block-bg'], ['block-blur', 'Block Blur', 'range', '32', '--article-block-blur']].forEach(([id, text, type, value, variable]) => {
             const rowLabel = document.createElement('label'); rowLabel.htmlFor = `content-${id}`; rowLabel.textContent = text;
             const control = document.createElement('input'); control.id = `content-${id}`; control.type = type; control.value = value;
             if (type === 'range') { control.min = '0'; control.max = '40'; control.step = '1'; }
@@ -81,7 +81,17 @@ in vec2 p; void main(){gl_Position=vec4(p,0.,1.);}`;
         });
         panel.appendChild(section);
     };
-    fetch('assets/shaders/train-scene.glsl').then(r => r.text()).then(source => {
+    const mountScrollbarControls = () => {
+        const panel = document.getElementById('glass-control');
+        if (!panel || panel.querySelector('[data-scrollbar-controls]')) return;
+        const section = document.createElement('section'); section.className = 'glass-control-section'; section.dataset.scrollbarControls = 'true'; section.innerHTML = '<h2>Scrollbar</h2>';
+        const label = document.createElement('label'); label.htmlFor = 'page-scrollbar-color'; label.textContent = 'Thumb Color';
+        const input = document.createElement('input'); input.type = 'color'; input.id = 'page-scrollbar-color'; input.value = '#292829';
+        const output = document.createElement('output'); output.textContent = input.value;
+        input.addEventListener('input', () => { document.documentElement.style.setProperty('--scrollbar-glass-color', `${input.value}61`); output.textContent = input.value; });
+        section.append(label, input, output); panel.appendChild(section);
+    };
+    fetch('assets/shaders/train-scene.glsl?v=speed-30-1').then(r => r.text()).then(source => {
         source = makeUniformSource(source);
         const fragment = `#version 300 es
 precision highp float; uniform vec3 iResolution; uniform float iTime; uniform sampler2D iChannel0; uniform sampler2D iChannel1; uniform float uSaturation; uniform float uContrast; uniform float uBrightness; uniform float uHue; ${cloudColors.map((_, index) => `uniform vec3 uCloud${index}; uniform float uCloudOverride${index};`).join(' ')} out vec4 outColor;
@@ -95,6 +105,7 @@ void main(){ mainImage(outColor, gl_FragCoord.xy); vec3 c=outColor.rgb; float lu
         mountCloudControls();
         mountBackgroundControls();
         mountContentControls();
+        mountScrollbarControls();
         resize();addEventListener('resize',resize,{passive:true});requestAnimationFrame(draw);
     }).catch(error => console.error('Background shader failed:',error));
 })();

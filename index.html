@@ -4,19 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tianyan Cafe</title>
+    <script>
+        (() => {
+            const local = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+            window.__designControlsEnabled = local && new URLSearchParams(location.search).get('controls') === '1';
+            if (window.__designControlsEnabled) document.documentElement.dataset.designControls = 'on';
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/gruvbox-dark-medium.min.css">
-    <link rel="stylesheet" href="assets/css/gitbook-style.css?v=glass-ui-49">
+    <link rel="stylesheet" href="assets/css/gitbook-style.css?v=glass-ui-53">
 </head>
 <body>
     <canvas id="shader-background" class="shader-background" aria-hidden="true"></canvas>
     <!-- Top Header Bar -->
     <canvas id="header-glass-webgl" class="header-glass-webgl" aria-hidden="true"></canvas>
     <header id="top-header" class="top-header">
-        <div class="header-clouds" aria-hidden="true"></div>
         <div class="header-left">
             <a href="#" class="site-logo" id="site-logo-link">
                 <span class="logo-icon">T</span>
@@ -96,6 +102,9 @@
             </div>
         </main>
     </div>
+    <div id="page-glass-scrollbar" class="page-glass-scrollbar" aria-hidden="true">
+        <div class="page-glass-scrollbar-thumb"></div>
+    </div>
     
     <!-- Search Modal -->
     <div id="search-modal" class="search-modal">
@@ -110,15 +119,17 @@
         </div>
     </div>
 
+    <script>
+        if (!window.__designControlsEnabled) document.getElementById('glass-control')?.remove();
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
     <script src="assets/js/html2canvas.min.js?v=1.4.1"></script>
-    <script src="assets/js/shaderBackgroundExact.js?v=train-shader-2"></script>
-    <script src="assets/js/liquidGlassWebGL.js?v=studio-webgl-51"></script>
-    <script src="assets/js/clouds.js?v=cloud-overlay-1"></script>
+    <script src="assets/js/shaderBackgroundExact.js?v=train-shader-5"></script>
+    <script src="assets/js/liquidGlassWebGL.js?v=studio-webgl-56"></script>
     <script src="assets/js/site.js?v=liquid-glass-studio-5"></script>
 </body>
 </html>

@@ -16,6 +16,7 @@ class SiteApp {
             await this.loadConfig();
             this.renderSidebar();
             this.setupEventListeners();
+            this.setupGlassScrollbar();
             this.handleRouting();
             this.buildSearchIndex();
         } catch (error) {
@@ -131,6 +132,41 @@ class SiteApp {
                 </div>
             `).join('');
         }
+    }
+
+    setupGlassScrollbar() {
+        const scroller = document.querySelector('.main-content');
+        const track = document.getElementById('page-glass-scrollbar');
+        const thumb = track?.querySelector('.page-glass-scrollbar-thumb');
+        if (!scroller || !track || !thumb) return;
+
+        const sync = () => {
+            const trackHeight = track.clientHeight;
+            const scrollRange = Math.max(scroller.scrollHeight - scroller.clientHeight, 0);
+            const thumbHeight = scrollRange ? Math.max(32, trackHeight * scroller.clientHeight / scroller.scrollHeight) : trackHeight;
+            const travel = Math.max(trackHeight - thumbHeight, 0);
+            thumb.style.height = `${thumbHeight}px`;
+            thumb.style.transform = `translateY(${scrollRange ? travel * scroller.scrollTop / scrollRange : 0}px)`;
+            track.style.display = scrollRange ? 'block' : 'none';
+        };
+
+        let dragStartY = 0;
+        let dragStartScroll = 0;
+        thumb.addEventListener('pointerdown', event => {
+            dragStartY = event.clientY;
+            dragStartScroll = scroller.scrollTop;
+            thumb.setPointerCapture(event.pointerId);
+        });
+        thumb.addEventListener('pointermove', event => {
+            if (!thumb.hasPointerCapture(event.pointerId)) return;
+            const travel = Math.max(track.clientHeight - thumb.offsetHeight, 1);
+            const scrollRange = Math.max(scroller.scrollHeight - scroller.clientHeight, 0);
+            scroller.scrollTop = dragStartScroll + (event.clientY - dragStartY) * scrollRange / travel;
+        });
+        scroller.addEventListener('scroll', sync, { passive: true });
+        window.addEventListener('resize', sync, { passive: true });
+        new MutationObserver(sync).observe(document.getElementById('page-content'), { childList: true, subtree: true });
+        requestAnimationFrame(sync);
     }
 
     setupEventListeners() {
