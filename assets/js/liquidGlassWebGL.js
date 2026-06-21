@@ -867,11 +867,21 @@ void main() {
             let pending = false;
             let pointer = null;
             let interactionRect = null;
+            let interactionFrame = 0;
+            let baseRect = null;
+
+            const readBaseRect = () => {
+                const rect = target.getBoundingClientRect();
+                return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
+            };
 
             const reset = () => {
                 active = false;
                 pointer = null;
                 interactionRect = null;
+                if (interactionFrame) cancelAnimationFrame(interactionFrame);
+                interactionFrame = 0;
+                pending = false;
                 target.classList.remove('is-liquid-glass-hover');
                 target.style.setProperty('--glass-drift-x', '0px');
                 target.style.setProperty('--glass-drift-y', '0px');
@@ -925,17 +935,44 @@ void main() {
                 pointer = { x: event.clientX, y: event.clientY };
                 if (!active || pending) return;
                 pending = true;
-                requestAnimationFrame(update);
+                interactionFrame = requestAnimationFrame(() => {
+                    interactionFrame = 0;
+                    update();
+                });
             };
 
-            target.addEventListener('pointerenter', event => {
-                active = true;
-                interactionRect = target.getBoundingClientRect();
-                queueUpdate(event);
-            });
-            target.addEventListener('pointermove', queueUpdate, { passive: true });
-            target.addEventListener('pointerleave', reset);
-            target.addEventListener('pointercancel', reset);
+            if (options.edgeOnly) {
+                // Keep hit-testing independent from the transformed sidebar. Using
+                // pointerenter/leave on the moving element can miss a fast re-entry.
+                baseRect = readBaseRect();
+                window.addEventListener('resize', () => {
+                    if (!active) baseRect = readBaseRect();
+                }, { passive: true });
+                document.addEventListener('pointermove', event => {
+                    const rect = baseRect;
+                    const inside = rect && event.clientX >= rect.left && event.clientX <= rect.right &&
+                        event.clientY >= rect.top && event.clientY <= rect.bottom;
+                    if (!inside) {
+                        if (active) reset();
+                        return;
+                    }
+                    if (!active) {
+                        active = true;
+                        interactionRect = rect;
+                    }
+                    queueUpdate(event);
+                }, { passive: true });
+                window.addEventListener('blur', reset);
+            } else {
+                target.addEventListener('pointerenter', event => {
+                    active = true;
+                    interactionRect = target.getBoundingClientRect();
+                    queueUpdate(event);
+                });
+                target.addEventListener('pointermove', queueUpdate, { passive: true });
+                target.addEventListener('pointerleave', reset);
+                target.addEventListener('pointercancel', reset);
+            }
         };
 
         bindPanel(this.header, { driftX: 2, driftY: 2, scaleX: 0, scaleY: 0.022 });
