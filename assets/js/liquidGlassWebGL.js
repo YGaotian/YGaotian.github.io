@@ -85,23 +85,7 @@ vec4 sampleBackground(vec2 screenPx, float blurPx) {
     vec2 renderedSize = u_backgroundImageSize * coverScale;
     vec2 offset = (u_canvasSize - renderedSize) * 0.5;
     vec2 uv = clamp((screenPx - offset) / renderedSize, vec2(0.0), vec2(1.0));
-    vec2 blurTexel = vec2(max(blurPx, 0.75)) / renderedSize;
-    // Dense 15×15 Gaussian kernel for the high-radius sidebar glass blur.
-    // cross artefacts when the blur radius was increased.
-    vec3 background = vec3(0.0);
-    float totalWeight = 0.0;
-    blurTexel *= 0.14285715;
-    for (int y = -7; y <= 7; y++) {
-        for (int x = -7; x <= 7; x++) {
-            float distanceSquared = float(x * x + y * y);
-            float weight = exp(-distanceSquared * 0.08163265);
-            vec2 offset = vec2(float(x), float(y)) * blurTexel;
-            background += texture(u_backgroundTex, clamp(uv + offset, 0.0, 1.0)).rgb * weight;
-            totalWeight += weight;
-        }
-    }
-    background /= totalWeight;
-    return vec4(background, 1.0);
+    return vec4(texture(u_backgroundTex, uv).rgb, 1.0);
 }
 
 vec4 compositeOverBackground(vec4 sampleColor, vec2 screenPx, float blurPx) {
@@ -256,6 +240,12 @@ void main() {
             this.mainTexture = null;
             this.sidebarTexture = null;
             this.backgroundTexture = null;
+            this.backgroundSampleCanvas = document.createElement('canvas');
+            this.backgroundSampleContext = this.backgroundSampleCanvas.getContext('2d', { alpha: false });
+            this.backgroundBlurCanvasA = document.createElement('canvas');
+            this.backgroundBlurContextA = this.backgroundBlurCanvasA.getContext('2d', { alpha: false });
+            this.backgroundBlurCanvasB = document.createElement('canvas');
+            this.backgroundBlurContextB = this.backgroundBlurCanvasB.getContext('2d', { alpha: false });
             this.mainTextureSize = [1, 1];
             this.sidebarTextureSize = [1, 1];
             this.backgroundImageSize = [1, 1];
@@ -560,10 +550,20 @@ void main() {
         }
 
         bindEvents() {
+            let resizeTimer = 0;
             window.addEventListener('resize', () => {
-                this.resize();
-                this.scheduleCapture(350);
-            });
+                // Keep the glass geometry aligned with the live CSS layout while
+                // preserving the existing framebuffer until resizing settles.
+                this.canvas.style.width = window.innerWidth + 'px';
+                this.canvas.style.height = window.innerHeight + 'px';
+                this.render();
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    this.resize();
+                    this.render();
+                    this.scheduleCapture(350);
+                }, 220);
+            }, { passive: true });
             [this.main, this.sidebar].forEach(el => {
                 el.addEventListener('scroll', () => this.render(), { passive: true });
             });
@@ -765,6 +765,30 @@ void main() {
 
         uploadBackgroundTexture(source) {
             const gl = this.gl;
+            let uploadSource = source;
+            if (!source.data && this.backgroundSampleContext) {
+                const width = Math.max(1, Math.round(source.width * 0.25));
+                const height = Math.max(1, Math.round(source.height * 0.25));
+                if (this.backgroundSampleCanvas.width !== width) this.backgroundSampleCanvas.width = width;
+                if (this.backgroundSampleCanvas.height !== height) this.backgroundSampleCanvas.height = height;
+                this.backgroundSampleContext.drawImage(source, 0, 0, width, height);
+                [this.backgroundBlurCanvasA, this.backgroundBlurCanvasB].forEach(canvas => {
+                    if (canvas.width !== width) canvas.width = width;
+                    if (canvas.height !== height) canvas.height = height;
+                });
+                const pixelsPerCssPixel = width / Math.max(window.innerWidth, 1);
+                const radius = Math.max(this.config.blurRadius, this.sidebarConfig.blurRadius) * pixelsPerCssPixel / Math.SQRT2;
+                this.backgroundBlurContextA.clearRect(0, 0, width, height);
+                this.backgroundBlurContextA.filter = `blur(${radius}px)`;
+                this.backgroundBlurContextA.drawImage(this.backgroundSampleCanvas, 0, 0);
+                this.backgroundBlurContextA.filter = 'none';
+                this.backgroundBlurContextB.clearRect(0, 0, width, height);
+                this.backgroundBlurContextB.filter = `blur(${radius}px)`;
+                this.backgroundBlurContextB.drawImage(this.backgroundBlurCanvasA, 0, 0);
+                this.backgroundBlurContextB.filter = 'none';
+                uploadSource = this.backgroundBlurCanvasB;
+            }
+            this.backgroundImageSize = [uploadSource.width, uploadSource.height];
             if (!this.backgroundTexture) this.backgroundTexture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, this.backgroundTexture);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -772,10 +796,10 @@ void main() {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            if (source.data) {
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, source.width, source.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, source.data);
+            if (uploadSource.data) {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, uploadSource.width, uploadSource.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, uploadSource.data);
             } else {
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, uploadSource);
             }
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
         }
