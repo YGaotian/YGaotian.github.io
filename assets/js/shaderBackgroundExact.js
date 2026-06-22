@@ -91,7 +91,7 @@ in vec2 p; void main(){gl_Position=vec4(p,0.,1.);}`;
         input.addEventListener('input', () => { document.documentElement.style.setProperty('--scrollbar-glass-color', `${input.value}61`); output.textContent = input.value; });
         section.append(label, input, output); panel.appendChild(section);
     };
-    fetch('assets/shaders/train-scene.glsl?v=speed-30-1').then(r => r.text()).then(source => {
+    fetch('assets/shaders/train-scene.glsl?v=train-smoke-emitter-1').then(r => r.text()).then(source => {
         source = makeUniformSource(source);
         const fragment = `#version 300 es
 precision highp float; uniform vec3 iResolution; uniform float iTime; uniform sampler2D iChannel0; uniform sampler2D iChannel1; uniform float uSaturation; uniform float uContrast; uniform float uBrightness; uniform float uHue; ${cloudColors.map((_, index) => `uniform vec3 uCloud${index}; uniform float uCloudOverride${index};`).join(' ')} out vec4 outColor;

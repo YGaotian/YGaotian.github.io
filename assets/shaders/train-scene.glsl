@@ -229,7 +229,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     vec4 fg = vec4(0.);
     int n = 5;
-    if (uv.y < 0.5)
+    // Leave enough headroom for rare foreground peaks; the previous 0.5
+    // cutoff visibly sliced tall green clouds into a horizontal edge.
+    if (uv.y < 0.68)
     for (int i = 0; i < n; i++){
         fg += foreground(uv, t+1.2*float(i)/float(n)/60.) / (float(n));
     }
@@ -301,7 +303,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     if(uv.x < 0.49){
         float x = -uv.x + 0.49;
-        float y = abs(uv.y + h*0.4 - 0.16*sqrt(x) - 0.12) - 0.8*x*exp(-x*10.0);
+        float emissionBlend = smoothstep(0.0, 0.04, x);
+        float y = abs(uv.y + h*0.4*emissionBlend - 0.16*sqrt(x) - 0.125) - 0.8*x*exp(-x*10.0);
         if(y < 0.0) col = vec3(1.0, 0.94, 0.91);
         if(y < - 0.02) col = vec3(0.92, 0.85, 0.82);
     }
