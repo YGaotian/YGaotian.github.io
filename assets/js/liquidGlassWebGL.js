@@ -17,6 +17,27 @@ void main() {
     gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
 
+    const BLUR_FRAG_SRC = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 fragColor;
+uniform sampler2D u_source;
+uniform vec2 u_texel;
+uniform vec2 u_direction;
+uniform float u_radius;
+void main() {
+    vec3 sum = vec3(0.0);
+    float total = 0.0;
+    for (int i = -8; i <= 8; i++) {
+        float x = float(i);
+        float weight = exp(-(x * x) / 18.0);
+        vec2 offset = u_direction * u_texel * (x / 8.0) * u_radius;
+        sum += texture(u_source, clamp(v_uv + offset, 0.0, 1.0)).rgb * weight;
+        total += weight;
+    }
+    fragColor = vec4(sum / total, 1.0);
+}`;
+
     const FRAG_SRC = `#version 300 es
 precision highp float;
 
@@ -242,10 +263,10 @@ void main() {
             this.backgroundTexture = null;
             this.backgroundSampleCanvas = document.createElement('canvas');
             this.backgroundSampleContext = this.backgroundSampleCanvas.getContext('2d', { alpha: false });
-            this.backgroundBlurCanvasA = document.createElement('canvas');
-            this.backgroundBlurContextA = this.backgroundBlurCanvasA.getContext('2d', { alpha: false });
-            this.backgroundBlurCanvasB = document.createElement('canvas');
-            this.backgroundBlurContextB = this.backgroundBlurCanvasB.getContext('2d', { alpha: false });
+            this.backgroundSourceTexture = null;
+            this.backgroundBlurTempTexture = null;
+            this.backgroundFramebuffer = null;
+            this.backgroundBlurSize = [0, 0];
             this.mainTextureSize = [1, 1];
             this.sidebarTextureSize = [1, 1];
             this.backgroundImageSize = [1, 1];
@@ -403,8 +424,8 @@ void main() {
             this.program = program;
             gl.useProgram(program);
 
-            const buffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            this.quadBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
             const pos = gl.getAttribLocation(program, 'a_pos');
             gl.enableVertexAttribArray(pos);
@@ -427,6 +448,27 @@ void main() {
             gl.uniform1i(this.uniforms.u_mainTex, 0);
             gl.uniform1i(this.uniforms.u_sidebarTex, 1);
             gl.uniform1i(this.uniforms.u_backgroundTex, 2);
+
+            const blurProgram = gl.createProgram();
+            gl.attachShader(blurProgram, this.compile(gl.VERTEX_SHADER, VERT_SRC));
+            gl.attachShader(blurProgram, this.compile(gl.FRAGMENT_SHADER, BLUR_FRAG_SRC));
+            gl.linkProgram(blurProgram);
+            if (!gl.getProgramParameter(blurProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(blurProgram));
+            this.blurProgram = blurProgram;
+            this.blurUniforms = {
+                source: gl.getUniformLocation(blurProgram, 'u_source'),
+                texel: gl.getUniformLocation(blurProgram, 'u_texel'),
+                direction: gl.getUniformLocation(blurProgram, 'u_direction'),
+                radius: gl.getUniformLocation(blurProgram, 'u_radius')
+            };
+        }
+
+        bindQuad(program) {
+            const gl = this.gl;
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+            const pos = gl.getAttribLocation(program, 'a_pos');
+            gl.enableVertexAttribArray(pos);
+            gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
         }
 
         async loadBackgroundTexture() {
@@ -595,7 +637,9 @@ void main() {
         }
 
         resize() {
-            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const isiPad = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const dpr = Math.min(window.devicePixelRatio || 1, isiPad ? 1.25 : 2);
             this.dpr = dpr;
             this.canvas.style.left = '0px';
             this.canvas.style.top = '0px';
@@ -772,25 +816,11 @@ void main() {
                 if (this.backgroundSampleCanvas.width !== width) this.backgroundSampleCanvas.width = width;
                 if (this.backgroundSampleCanvas.height !== height) this.backgroundSampleCanvas.height = height;
                 this.backgroundSampleContext.drawImage(source, 0, 0, width, height);
-                [this.backgroundBlurCanvasA, this.backgroundBlurCanvasB].forEach(canvas => {
-                    if (canvas.width !== width) canvas.width = width;
-                    if (canvas.height !== height) canvas.height = height;
-                });
-                const pixelsPerCssPixel = width / Math.max(window.innerWidth, 1);
-                const radius = Math.max(this.config.blurRadius, this.sidebarConfig.blurRadius) * pixelsPerCssPixel / Math.SQRT2;
-                this.backgroundBlurContextA.clearRect(0, 0, width, height);
-                this.backgroundBlurContextA.filter = `blur(${radius}px)`;
-                this.backgroundBlurContextA.drawImage(this.backgroundSampleCanvas, 0, 0);
-                this.backgroundBlurContextA.filter = 'none';
-                this.backgroundBlurContextB.clearRect(0, 0, width, height);
-                this.backgroundBlurContextB.filter = `blur(${radius}px)`;
-                this.backgroundBlurContextB.drawImage(this.backgroundBlurCanvasA, 0, 0);
-                this.backgroundBlurContextB.filter = 'none';
-                uploadSource = this.backgroundBlurCanvasB;
+                uploadSource = this.backgroundSampleCanvas;
             }
             this.backgroundImageSize = [uploadSource.width, uploadSource.height];
-            if (!this.backgroundTexture) this.backgroundTexture = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, this.backgroundTexture);
+            if (!this.backgroundSourceTexture) this.backgroundSourceTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, this.backgroundSourceTexture);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -802,6 +832,49 @@ void main() {
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, uploadSource);
             }
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            this.runBackgroundBlur(uploadSource.width, uploadSource.height);
+        }
+
+        ensureBlurTexture(texture, width, height) {
+            const gl = this.gl;
+            if (!texture) texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            return texture;
+        }
+
+        runBackgroundBlur(width, height) {
+            const gl = this.gl;
+            if (this.backgroundBlurSize[0] !== width || this.backgroundBlurSize[1] !== height) {
+                this.backgroundBlurTempTexture = this.ensureBlurTexture(this.backgroundBlurTempTexture, width, height);
+                this.backgroundTexture = this.ensureBlurTexture(this.backgroundTexture, width, height);
+                this.backgroundBlurSize = [width, height];
+            }
+            if (!this.backgroundFramebuffer) this.backgroundFramebuffer = gl.createFramebuffer();
+            gl.useProgram(this.blurProgram);
+            this.bindQuad(this.blurProgram);
+            gl.viewport(0, 0, width, height);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.uniform1i(this.blurUniforms.source, 0);
+            gl.uniform2f(this.blurUniforms.texel, 1 / width, 1 / height);
+            const radius = Math.max(this.config.blurRadius, this.sidebarConfig.blurRadius) * width / Math.max(window.innerWidth, 1);
+            gl.uniform1f(this.blurUniforms.radius, radius);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.backgroundFramebuffer);
+
+            gl.bindTexture(gl.TEXTURE_2D, this.backgroundSourceTexture);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.backgroundBlurTempTexture, 0);
+            gl.uniform2f(this.blurUniforms.direction, 1, 0);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            gl.bindTexture(gl.TEXTURE_2D, this.backgroundBlurTempTexture);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.backgroundTexture, 0);
+            gl.uniform2f(this.blurUniforms.direction, 0, 1);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         }
 
         render() {
@@ -836,6 +909,7 @@ void main() {
                 });
 
                 gl.useProgram(this.program);
+                this.bindQuad(this.program);
                 gl.viewport(0, 0, this.canvas.width, this.canvas.height);
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
