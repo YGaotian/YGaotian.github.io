@@ -35,7 +35,7 @@
   "sidebar": {
     "width": "260px",
     "shadow": "10px 0 30px rgba(0, 0, 0, 0.1)",
-    "blurRadius": "22px",
+    "blurRadius": "19px",
     "glass": {
       "refThickness": 34,
       "edgeFalloffPower": 0.2,

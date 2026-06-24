@@ -58,7 +58,7 @@ html, body {
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #241516;
+    background: transparent;
     color: var(--text-primary);
     line-height: 1.6;
 }
@@ -100,14 +100,17 @@ body {
     will-change: transform;
 }
 
-.shader-background {
+.image-background {
     position: fixed;
     inset: 0;
     width: 100vw;
     height: 100vh;
     z-index: -1;
     pointer-events: none;
+    overflow: hidden;
+    background: #17243b;
 }
+
 
 .glass-control {
     position: fixed;

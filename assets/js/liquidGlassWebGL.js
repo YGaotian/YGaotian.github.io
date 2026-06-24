@@ -114,6 +114,20 @@ vec4 compositeOverBackground(vec4 sampleColor, vec2 screenPx, float blurPx) {
 }
 
 vec4 sampleSceneWithMode(vec2 screenPx, float excludeSidebarContent, float blurPx) {
+    // Header combines a fixed watercolor background with a separately captured,
+    // transparent article-ink texture that follows only the article scroll.
+    if (excludeSidebarContent < 0.5) {
+        vec4 background = sampleBackground(screenPx, blurPx);
+        if (screenPx.x >= u_mainRectPos.x && screenPx.x <= u_mainRectPos.x + u_mainRectSize.x &&
+            screenPx.y >= u_mainRectPos.y && screenPx.y <= u_mainRectPos.y + u_mainRectSize.y) {
+            vec2 local = vec2(screenPx.x - u_mainRectPos.x, screenPx.y - u_mainRectPos.y + u_mainScrollTop) + u_mainTexAlign;
+            vec2 uv = local / u_mainTexSize;
+            if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
+                return compositeOverBackground(texture(u_mainTex, uv), screenPx, blurPx);
+            }
+        }
+        return background;
+    }
     if (
         screenPx.x >= u_sidebarRectPos.x &&
         screenPx.x <= u_sidebarRectPos.x + u_sidebarRectSize.x &&
@@ -472,16 +486,15 @@ void main() {
         }
 
         async loadBackgroundTexture() {
-            this.backgroundCanvas = document.getElementById('shader-background');
-            if (this.backgroundCanvas && this.backgroundCanvas.width && this.backgroundCanvas.height) {
-                this.backgroundImageSize = [this.backgroundCanvas.width, this.backgroundCanvas.height];
+            this.backgroundCanvas = document.getElementById('image-background');
+            if (this.backgroundCanvas?.width && this.backgroundCanvas?.height) {
                 this.uploadBackgroundTexture(this.backgroundCanvas);
-                document.documentElement.dataset.liquidGlassBackground = 'ready';
-            } else {
-                const fallback = new Uint8Array([223, 229, 228, 255]);
-                this.uploadBackgroundTexture({ width: 1, height: 1, data: fallback });
-                document.documentElement.dataset.liquidGlassBackground = 'fallback';
+                document.documentElement.dataset.liquidGlassBackground = 'webgl-image-reveal';
+                return;
             }
+            const fallback = new Uint8Array([223, 229, 228, 255]);
+            this.uploadBackgroundTexture({ width: 1, height: 1, data: fallback });
+            document.documentElement.dataset.liquidGlassBackground = 'waiting-webgl-image-reveal';
         }
 
         applyGlassStyles() {
@@ -610,13 +623,12 @@ void main() {
                 el.addEventListener('scroll', () => this.render(), { passive: true });
             });
             window.addEventListener('hashchange', () => this.scheduleCapture(700));
-            window.addEventListener('shaderbackgroundframe', () => {
+            window.addEventListener('imagebackgroundframe', () => {
                 if (!this.backgroundCanvas?.width) return;
                 this.backgroundImageSize = [this.backgroundCanvas.width, this.backgroundCanvas.height];
                 this.uploadBackgroundTexture(this.backgroundCanvas);
                 this.render();
             });
-
             const pageContent = document.getElementById('page-content');
             if (pageContent && typeof MutationObserver !== 'undefined') {
                 this.observer = new MutationObserver(() => this.scheduleCapture(600));
@@ -675,6 +687,7 @@ void main() {
             [
                 '#top-header',
                 '#header-glass-webgl',
+                '#image-background',
                 '#glass-control',
                 '.search-modal'
             ].forEach(selector => {
@@ -722,6 +735,20 @@ void main() {
                         clonedMain.style.height = `${mainHeight}px`;
                         clonedMain.style.overflow = 'visible';
                     }
+
+                    // The header texture must contain article ink only. Remove
+                    // all glass/background plates from the clone while retaining
+                    // text, code and inline formatting.
+                    doc.querySelectorAll('#page-content *, .content-header-bar').forEach(node => {
+                        // Code frames are visual content. Keeping their dark
+                        // surface in this texture lets the header refract them
+                        // instead of rendering only the surrounding text.
+                        if (node.matches('pre, pre *')) return;
+                        node.style.background = 'transparent';
+                        node.style.boxShadow = 'none';
+                        node.style.backdropFilter = 'none';
+                        node.style.webkitBackdropFilter = 'none';
+                    });
 
                     const clonedSidebar = doc.querySelector('.sidebar');
                     if (clonedSidebar) {
@@ -956,11 +983,15 @@ void main() {
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             });
         }
+
     }
 
     HeaderLiquidGlass.prototype.bindGlassInteractions = function () {
         const bindPanel = (target, options) => {
             if (!target) return;
+            const setGlassVar = (name, value) => {
+                target.style.setProperty(name, value);
+            };
             let active = false;
             let pending = false;
             let pointer = null;
@@ -981,12 +1012,12 @@ void main() {
                 interactionFrame = 0;
                 pending = false;
                 target.classList.remove('is-liquid-glass-hover');
-                target.style.setProperty('--glass-drift-x', '0px');
-                target.style.setProperty('--glass-drift-y', '0px');
-                target.style.setProperty('--glass-scale-x', '1');
-                target.style.setProperty('--glass-scale-y', '1');
-                target.style.setProperty('--glass-origin-x', options.edgeOnly ? '0%' : '50%');
-                target.style.setProperty('--glass-origin-y', options.edgeOnly ? '0%' : '50%');
+                setGlassVar('--glass-drift-x', '0px');
+                setGlassVar('--glass-drift-y', '0px');
+                setGlassVar('--glass-scale-x', '1');
+                setGlassVar('--glass-scale-y', '1');
+                setGlassVar('--glass-origin-x', options.edgeOnly ? '0%' : '50%');
+                setGlassVar('--glass-origin-y', options.edgeOnly ? '0%' : '50%');
                 this.animateGlassGeometry(420);
             };
 
@@ -1003,21 +1034,21 @@ void main() {
                     const right = Math.max(x, 0) * options.edgeX;
                     const top = Math.max(-y, 0) * options.edgeY;
                     const bottom = Math.max(y, 0) * options.edgeY;
-                    target.style.setProperty('--glass-drift-x', `${(-left).toFixed(2)}px`);
-                    target.style.setProperty('--glass-drift-y', `${(-top).toFixed(2)}px`);
-                    target.style.setProperty('--glass-scale-x', (1 + (left + right) / rect.width).toFixed(5));
-                    target.style.setProperty('--glass-scale-y', (1 + (top + bottom) / rect.height).toFixed(5));
-                    target.style.setProperty('--glass-origin-x', '0%');
-                    target.style.setProperty('--glass-origin-y', '0%');
+                    setGlassVar('--glass-drift-x', `${(-left).toFixed(2)}px`);
+                    setGlassVar('--glass-drift-y', `${(-top).toFixed(2)}px`);
+                    setGlassVar('--glass-scale-x', (1 + (left + right) / rect.width).toFixed(5));
+                    setGlassVar('--glass-scale-y', (1 + (top + bottom) / rect.height).toFixed(5));
+                    setGlassVar('--glass-origin-x', '0%');
+                    setGlassVar('--glass-origin-y', '0%');
                 } else {
                     const xStrength = 0.35 + Math.abs(x) * 0.65;
                     const yStrength = 0.35 + Math.abs(y) * 0.65;
-                    target.style.setProperty('--glass-drift-x', `${(x * options.driftX).toFixed(2)}px`);
-                    target.style.setProperty('--glass-drift-y', `${(y * options.driftY).toFixed(2)}px`);
-                    target.style.setProperty('--glass-scale-x', (1 + options.scaleX * xStrength).toFixed(4));
-                    target.style.setProperty('--glass-scale-y', (1 + options.scaleY * yStrength).toFixed(4));
-                    target.style.setProperty('--glass-origin-x', `${((1 - x) * 50).toFixed(1)}%`);
-                    target.style.setProperty('--glass-origin-y', `${((1 - y) * 50).toFixed(1)}%`);
+                    setGlassVar('--glass-drift-x', `${(x * options.driftX).toFixed(2)}px`);
+                    setGlassVar('--glass-drift-y', `${(y * options.driftY).toFixed(2)}px`);
+                    setGlassVar('--glass-scale-x', (1 + options.scaleX * xStrength).toFixed(4));
+                    setGlassVar('--glass-scale-y', (1 + options.scaleY * yStrength).toFixed(4));
+                    setGlassVar('--glass-origin-x', `${((1 - x) * 50).toFixed(1)}%`);
+                    setGlassVar('--glass-origin-y', `${((1 - y) * 50).toFixed(1)}%`);
                 }
                 this.animateGlassGeometry(options.duration || 420);
             };
