@@ -19,7 +19,7 @@
     const DROP_COUNT = 12;
     const REVEAL_FPS = 24;
     const SOLID_FPS = 30;
-    const ASSET_VERSION = 'image-webgl-15';
+    const ASSET_VERSION = 'image-webgl-16';
     // Runtime-tunable parallax settings. These are intentionally conservative:
     // strength controls maximum UV displacement, depthContrast softens the
     // depth map toward 0.5, blurRadius smooths depth sampling in pixels, and
@@ -27,7 +27,7 @@
     const parallaxSettings = {
         strength: 0.014,
         depthContrast: 0.34,
-        blurRadius: 6.25,
+        blurRadius: 3.50,
         mouseEase: 0.175
     };
     window.__backgroundParallaxSettings = parallaxSettings;
