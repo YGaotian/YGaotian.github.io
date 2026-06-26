@@ -12,7 +12,7 @@
     "searchBoxTextColor": "rgba(80, 80, 80, 1)",
     "searchBoxIconColor": "rgba(100, 100, 100, 1)",
     "sidebarBgColor": "#8EBCC5",
-    "sidebarGroupTitleColor": "#EAF5FF",
+    "sidebarGroupTitleColor": "#FFFFFF",
     "sidebarItemColor": "#000000",
     "sidebarItemActiveColor": "#26384D",
     "sidebarItemActiveBgColor": "rgba(255, 75, 138, 0.61)",

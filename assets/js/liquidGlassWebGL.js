@@ -838,8 +838,8 @@ void main() {
             const gl = this.gl;
             let uploadSource = source;
             if (!source.data && this.backgroundSampleContext) {
-                const width = Math.max(1, Math.round(source.width * 0.25));
-                const height = Math.max(1, Math.round(source.height * 0.25));
+                const width = Math.max(1, Math.round(source.width * 0.5));
+                const height = Math.max(1, Math.round(source.height * 0.5));
                 if (this.backgroundSampleCanvas.width !== width) this.backgroundSampleCanvas.width = width;
                 if (this.backgroundSampleCanvas.height !== height) this.backgroundSampleCanvas.height = height;
                 this.backgroundSampleContext.drawImage(source, 0, 0, width, height);
@@ -998,27 +998,266 @@ void main() {
             let interactionRect = null;
             let interactionFrame = 0;
             let baseRect = null;
+            let lastEdgeState = null;
+            let settleFrame = 0;
+
+            // Edge interaction state for sidebar
+            let edgeInteraction = null; // { edge, startPointer, startDistance, currentAmount }
+            let isSettling = false;
 
             const readBaseRect = () => {
                 const rect = target.getBoundingClientRect();
                 return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
             };
 
-            const reset = () => {
-                active = false;
-                pointer = null;
-                interactionRect = null;
-                if (interactionFrame) cancelAnimationFrame(interactionFrame);
-                interactionFrame = 0;
-                pending = false;
-                target.classList.remove('is-liquid-glass-hover');
+            const applyRect = rect => {
+                if (!baseRect) baseRect = readBaseRect();
+                const base = baseRect;
+                setGlassVar('--glass-drift-x', `${(rect.left - base.left).toFixed(2)}px`);
+                setGlassVar('--glass-drift-y', `${(rect.top - base.top).toFixed(2)}px`);
+                setGlassVar('--glass-scale-x', (rect.width / Math.max(base.width, 1)).toFixed(5));
+                setGlassVar('--glass-scale-y', (rect.height / Math.max(base.height, 1)).toFixed(5));
+                setGlassVar('--glass-origin-x', '0%');
+                setGlassVar('--glass-origin-y', '0%');
+            };
+
+            const shapeRectForEdge = (edge, amount) => {
+                const base = baseRect || readBaseRect();
+                const rect = { ...base };
+                const horizontal = edge === 'left' || edge === 'right';
+                const signed = Number(amount) || 0;
+                const minSize = 40;
+
+                if (horizontal) {
+                    const width = Math.max(minSize, base.width + signed);
+                    const height = (base.width * base.height) / width;
+                    const adjacentDelta = (base.height - height) * 0.5;
+                    if (edge === 'left') rect.left = base.right - width;
+                    if (edge === 'right') rect.right = base.left + width;
+                    rect.width = width;
+                    rect.top = base.top + adjacentDelta;
+                    rect.bottom = base.bottom - adjacentDelta;
+                    rect.height = height;
+                } else {
+                    const height = Math.max(minSize, base.height + signed);
+                    const width = (base.width * base.height) / height;
+                    const adjacentDelta = (base.width - width) * 0.5;
+                    if (edge === 'top') rect.top = base.bottom - height;
+                    if (edge === 'bottom') rect.bottom = base.top + height;
+                    rect.height = height;
+                    rect.left = base.left + adjacentDelta;
+                    rect.right = base.right - adjacentDelta;
+                    rect.width = width;
+                }
+                return rect;
+            };
+
+            // Signed distance from point to a specific edge of rect
+            // Positive = inside, Negative = outside
+            const distToEdge = (point, rect, edge) => {
+                switch (edge) {
+                    case 'left':   return point.x - rect.left;
+                    case 'right':  return rect.right - point.x;
+                    case 'top':    return point.y - rect.top;
+                    case 'bottom': return rect.bottom - point.y;
+                }
+            };
+
+            // Perpendicular coordinate of the mouse relative to an edge
+            const edgeCoord = (point, edge) => {
+                switch (edge) {
+                    case 'left': case 'right': return point.x;
+                    case 'top': case 'bottom':  return point.y;
+                }
+            };
+
+            // Reset glass vars to identity
+            const resetGlassVars = () => {
+                settleFrame = 0;
+                isSettling = false;
+                edgeInteraction = null;
+                lastEdgeState = null;
                 setGlassVar('--glass-drift-x', '0px');
                 setGlassVar('--glass-drift-y', '0px');
                 setGlassVar('--glass-scale-x', '1');
                 setGlassVar('--glass-scale-y', '1');
-                setGlassVar('--glass-origin-x', options.edgeOnly ? '0%' : '50%');
-                setGlassVar('--glass-origin-y', options.edgeOnly ? '0%' : '50%');
-                this.animateGlassGeometry(420);
+                this.render();
+            };
+
+            // Elastic recovery: single visible overshoot then settle to zero
+            const settleEdge = (edge, amount, duration = 350) => {
+                if (!options.edgeOnly || !baseRect) return;
+                cancelAnimationFrame(settleFrame);
+                isSettling = true;
+                const start = performance.now();
+                const tick = now => {
+                    const t = Math.min(1, (now - start) / duration);
+                    // phase [0 → 1.5π]: zero crossing at t≈0.33, overshoot peak at t≈0.67, ends at 0
+                    const phase = t * Math.PI * 1.5;
+                    const decay = Math.exp(-1.2 * t);
+                    const current = amount * decay * Math.cos(phase);
+                    applyRect(shapeRectForEdge(edge, current));
+                    this.render();
+                    if (t < 1 && Math.abs(current) > 0.05) {
+                        settleFrame = requestAnimationFrame(tick);
+                    } else {
+                        resetGlassVars();
+                    }
+                };
+                settleFrame = requestAnimationFrame(tick);
+            };
+
+            // Smooth recovery without overshoot
+            const smoothRecover = (edge, amount, duration = 200) => {
+                if (!options.edgeOnly || !baseRect) return;
+                cancelAnimationFrame(settleFrame);
+                isSettling = true;
+                const start = performance.now();
+                const tick = now => {
+                    const t = Math.min(1, (now - start) / duration);
+                    const ease = 1 - (1 - t) * (1 - t);
+                    const current = amount * (1 - ease);
+                    applyRect(shapeRectForEdge(edge, current));
+                    this.render();
+                    if (t < 1) {
+                        settleFrame = requestAnimationFrame(tick);
+                    } else {
+                        resetGlassVars();
+                    }
+                };
+                settleFrame = requestAnimationFrame(tick);
+            };
+
+            let lastPointer = null; // track previous pointer for crossing detection
+
+            const updateEdgeInteraction = (point) => {
+                const rect = baseRect || readBaseRect();
+                const triggerDist = options.enterTrigger || 6;
+                const releaseDist = options.releaseThreshold || 40;
+                const maxDeform = options.edgePush || 6;
+
+                if (isSettling) { lastPointer = point; return; }
+
+                // If no active interaction, try to start one
+                if (!edgeInteraction) {
+                    const edges = ['left', 'right', 'top', 'bottom'];
+                    for (const edge of edges) {
+                        const d = distToEdge(point, rect, edge);
+                        const inZone = Math.abs(d) <= triggerDist;
+                        // Also detect if mouse crossed this edge between frames
+                        let crossed = false;
+                        if (!inZone && lastPointer) {
+                            const prevD = distToEdge(lastPointer, rect, edge);
+                            crossed = (prevD >= 0) !== (d >= 0);
+                        }
+                        if (inZone || crossed) {
+                            // For crossing: interpolate to find the coord at the edge
+                            let entryC;
+                            if (crossed && lastPointer) {
+                                const prevD = distToEdge(lastPointer, rect, edge);
+                                const frac = prevD / (prevD - d);
+                                const ix = lastPointer.x + (point.x - lastPointer.x) * frac;
+                                const iy = lastPointer.y + (point.y - lastPointer.y) * frac;
+                                entryC = edgeCoord({ x: ix, y: iy }, edge);
+                            } else {
+                                entryC = edgeCoord(point, edge);
+                            }
+                            edgeInteraction = {
+                                edge,
+                                entryCoord: entryC,
+                                entryEdgeDist: crossed ? 0 : d,
+                                currentAmount: 0
+                            };
+                            target.classList.add('is-liquid-glass-hover');
+                            break;
+                        }
+                    }
+                    if (!edgeInteraction) { lastPointer = point; return; }
+                }
+
+                const edge = edgeInteraction.edge;
+                const currentEdgeDist = distToEdge(point, rect, edge);
+                const absEdgeDist = Math.abs(currentEdgeDist);
+
+                // Release: mouse too far from original edge
+                if (absEdgeDist > releaseDist) {
+                    const state = edgeInteraction;
+                    const crossed = (state.entryEdgeDist >= 0) !== (currentEdgeDist >= 0);
+                    edgeInteraction = null;
+                    target.classList.remove('is-liquid-glass-hover');
+                    lastPointer = point;
+                    if (crossed && Math.abs(state.currentAmount) > 0.3) {
+                        settleEdge(state.edge, state.currentAmount, options.settleDuration || 350);
+                    } else {
+                        smoothRecover(state.edge, state.currentAmount, 200);
+                    }
+                    return;
+                }
+
+                // Edge follows mouse: LINEAR scaling so edge moves proportionally
+                // over the entire range from trigger to release, never saturates/stops
+                const currentCoord = edgeCoord(point, edge);
+                const rawDelta = currentCoord - edgeInteraction.entryCoord;
+                let signedDelta;
+                if (edge === 'left' || edge === 'top') {
+                    signedDelta = -rawDelta;
+                } else {
+                    signedDelta = rawDelta;
+                }
+                const effectiveRange = releaseDist + triggerDist;
+                let deform = signedDelta * (maxDeform / effectiveRange);
+
+                // Top edge: if deform would overlap header, release immediately
+                if (edge === 'top' && this.header) {
+                    const headerBottom = this.header.getBoundingClientRect().bottom;
+                    const maxTopDeform = Math.max(0, rect.top - headerBottom);
+                    if (deform > maxTopDeform) {
+                        edgeInteraction = null;
+                        target.classList.remove('is-liquid-glass-hover');
+                        lastPointer = point;
+                        smoothRecover(edge, maxTopDeform, 200);
+                        return;
+                    }
+                }
+
+                edgeInteraction.currentAmount = deform;
+                applyRect(shapeRectForEdge(edge, deform));
+                lastEdgeState = { edge, amount: deform };
+                this.render();
+                lastPointer = point;
+            };
+
+            const reset = () => {
+                active = false;
+                pointer = null;
+                lastPointer = null;
+                interactionRect = null;
+                if (interactionFrame) cancelAnimationFrame(interactionFrame);
+                interactionFrame = 0;
+                pending = false;
+                
+                if (options.edgeOnly) {
+                    if (edgeInteraction && !isSettling) {
+                        const state = edgeInteraction;
+                        edgeInteraction = null;
+                        target.classList.remove('is-liquid-glass-hover');
+                        smoothRecover(state.edge, state.currentAmount, 200);
+                    } else if (!isSettling) {
+                        target.classList.remove('is-liquid-glass-hover');
+                        resetGlassVars();
+                    }
+                } else {
+                    if (settleFrame) cancelAnimationFrame(settleFrame);
+                    settleFrame = 0;
+                    target.classList.remove('is-liquid-glass-hover');
+                    setGlassVar('--glass-drift-x', '0px');
+                    setGlassVar('--glass-drift-y', '0px');
+                    setGlassVar('--glass-scale-x', '1');
+                    setGlassVar('--glass-scale-y', '1');
+                    setGlassVar('--glass-origin-x', '50%');
+                    setGlassVar('--glass-origin-y', '50%');
+                    this.animateGlassGeometry(420);
+                }
             };
 
             const update = () => {
@@ -1026,43 +1265,26 @@ void main() {
                 if (!active || !pointer) return;
 
                 const rect = interactionRect || target.getBoundingClientRect();
-                const x = Math.max(-1, Math.min(1, (pointer.x - (rect.left + rect.width * 0.5)) / Math.max(rect.width * 0.5, 1)));
-                const y = Math.max(-1, Math.min(1, (pointer.y - (rect.top + rect.height * 0.5)) / Math.max(rect.height * 0.5, 1)));
-                target.classList.add('is-liquid-glass-hover');
-                if (options.edgeOnly) {
-                    const left = Math.max(-x, 0) * options.edgeX;
-                    const right = Math.max(x, 0) * options.edgeX;
-                    const top = Math.max(-y, 0) * options.edgeY;
-                    const bottom = Math.max(y, 0) * options.edgeY;
-                    setGlassVar('--glass-drift-x', `${(-left).toFixed(2)}px`);
-                    setGlassVar('--glass-drift-y', `${(-top).toFixed(2)}px`);
-                    setGlassVar('--glass-scale-x', (1 + (left + right) / rect.width).toFixed(5));
-                    setGlassVar('--glass-scale-y', (1 + (top + bottom) / rect.height).toFixed(5));
-                    setGlassVar('--glass-origin-x', '0%');
-                    setGlassVar('--glass-origin-y', '0%');
-                } else {
+                if (!options.edgeOnly) {
+                    const x = Math.max(-1, Math.min(1, (pointer.x - (rect.left + rect.width * 0.5)) / Math.max(rect.width * 0.5, 1)));
+                    const y = Math.max(-1, Math.min(1, (pointer.y - (rect.top + rect.height * 0.5)) / Math.max(rect.height * 0.5, 1)));
                     const xStrength = 0.35 + Math.abs(x) * 0.65;
                     const yStrength = 0.35 + Math.abs(y) * 0.65;
+                    target.classList.add('is-liquid-glass-hover');
                     setGlassVar('--glass-drift-x', `${(x * options.driftX).toFixed(2)}px`);
                     setGlassVar('--glass-drift-y', `${(y * options.driftY).toFixed(2)}px`);
                     setGlassVar('--glass-scale-x', (1 + options.scaleX * xStrength).toFixed(4));
                     setGlassVar('--glass-scale-y', (1 + options.scaleY * yStrength).toFixed(4));
                     setGlassVar('--glass-origin-x', `${((1 - x) * 50).toFixed(1)}%`);
                     setGlassVar('--glass-origin-y', `${((1 - y) * 50).toFixed(1)}%`);
+                    this.animateGlassGeometry(options.duration || 420);
                 }
-                this.animateGlassGeometry(options.duration || 420);
             };
 
             const queueUpdate = event => {
-                if (options.edgeOnly && interactionRect && (
-                    event.clientX < interactionRect.left || event.clientX > interactionRect.right ||
-                    event.clientY < interactionRect.top || event.clientY > interactionRect.bottom
-                )) {
-                    reset();
-                    return;
-                }
                 pointer = { x: event.clientX, y: event.clientY };
-                if (!active || pending) return;
+                if (!active) return;
+                if (pending) return;
                 pending = true;
                 interactionFrame = requestAnimationFrame(() => {
                     interactionFrame = 0;
@@ -1071,26 +1293,29 @@ void main() {
             };
 
             if (options.edgeOnly) {
-                // Keep hit-testing independent from the transformed sidebar. Using
-                // pointerenter/leave on the moving element can miss a fast re-entry.
                 baseRect = readBaseRect();
                 window.addEventListener('resize', () => {
-                    if (!active) baseRect = readBaseRect();
+                    if (!edgeInteraction && !isSettling) baseRect = readBaseRect();
                 }, { passive: true });
+                
                 document.addEventListener('pointermove', event => {
-                    const rect = baseRect;
-                    const inside = rect && event.clientX >= rect.left && event.clientX <= rect.right &&
-                        event.clientY >= rect.top && event.clientY <= rect.bottom;
-                    if (!inside) {
-                        if (active) reset();
-                        return;
-                    }
-                    if (!active) {
-                        active = true;
-                        interactionRect = rect;
-                    }
-                    queueUpdate(event);
+                    if (!baseRect) return;
+                    const point = { x: event.clientX, y: event.clientY };
+                    pointer = point;
+                    if (isSettling) { lastPointer = point; return; }
+                    active = true;
+                    updateEdgeInteraction(point);
                 }, { passive: true });
+                
+                // Recover when mouse leaves the page
+                document.documentElement.addEventListener('mouseleave', () => {
+                    if (edgeInteraction && !isSettling) {
+                        const state = edgeInteraction;
+                        edgeInteraction = null;
+                        target.classList.remove('is-liquid-glass-hover');
+                        smoothRecover(state.edge, state.currentAmount, 200);
+                    }
+                });
                 window.addEventListener('blur', reset);
             } else {
                 target.addEventListener('pointerenter', event => {
@@ -1105,7 +1330,304 @@ void main() {
         };
 
         bindPanel(this.header, { driftX: 2, driftY: 2, scaleX: 0, scaleY: 0.022 });
-        bindPanel(this.sidebar, { driftX: 0, driftY: 0, scaleX: 0, scaleY: 0, edgeOnly: true, edgeX: 10, edgeY: 10, duration: 760 });
+        this.bindSidebarCollapse();
+    };
+
+    HeaderLiquidGlass.prototype.bindSidebarCollapse = function () {
+        const sidebar = this.sidebar;
+        if (!sidebar) return;
+        const btn = document.getElementById('sidebar-collapse-btn');
+        if (!btn) return;
+
+        // Collapsed width = border-radius * 2
+        const radius = parseFloat(getComputedStyle(sidebar).borderTopLeftRadius) || 22;
+        const COLLAPSED_W = radius * 2;
+        let collapsed = false;
+        let animating = false;
+        let animFrame = 0;
+        let baseRect = null;
+
+        const setVar = (n, v) => sidebar.style.setProperty(n, v);
+
+        const readBase = () => {
+            const r = sidebar.getBoundingClientRect();
+            return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+        };
+
+        const applyRect = (rect) => {
+            const b = baseRect;
+            setVar('--glass-drift-x', `${(rect.left - b.left).toFixed(2)}px`);
+            setVar('--glass-drift-y', `${(rect.top - b.top).toFixed(2)}px`);
+            setVar('--glass-scale-x', (rect.width / Math.max(b.width, 1)).toFixed(5));
+            setVar('--glass-scale-y', (rect.height / Math.max(b.height, 1)).toFixed(5));
+            setVar('--glass-origin-x', '0%');
+            setVar('--glass-origin-y', '0%');
+        };
+
+        const resetGlass = () => {
+            setVar('--glass-drift-x', '0px');
+            setVar('--glass-drift-y', '0px');
+            setVar('--glass-scale-x', '1');
+            setVar('--glass-scale-y', '1');
+        };
+
+        // Build rect: left edge fixed, width & height set, centered vertically around base center
+        const buildRect = (b, w, h) => ({
+            left: b.left,
+            top: b.top + (b.height - h) * 0.5,
+            right: b.left + w,
+            bottom: b.top + (b.height - h) * 0.5 + h,
+            width: w,
+            height: h
+        });
+
+        const easeOut3 = t => 1 - (1 - t) * (1 - t) * (1 - t);
+        const easeInOut3 = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        // Shared spring parameters – ensures identical overshoot for collapse & expand
+        const SP_ALPHA = 5;
+        const SP_OMEGA = 2.2 * Math.PI;
+        const SP_PEAK = Math.exp(-SP_ALPHA * Math.PI / SP_OMEGA); // ≈ 0.103
+
+        // Get max allowed height so top/bottom never exceed header bottom edge
+        const getMaxH = (b) => {
+            const headerBottom = this.header ? this.header.getBoundingClientRect().bottom : 0;
+            return b.height + 2 * Math.max(0, b.top - headerBottom);
+        };
+
+        // Content element for fade
+        const navEl = sidebar.querySelector('.main-nav');
+
+        // Refraction interpolation
+        const REF_EXPANDED = this.sidebarConfig.refFactor;   // e.g. 1.95
+        const REF_COLLAPSED = 1.70;
+
+        // Button geometry: initial CSS position and final centered position
+        const BTN_W = 28;
+        const btnInitLeft = () => baseRect.width - 8 - BTN_W;    // right:8px equivalent
+        const btnFinalLeft = () => baseRect.width / 2 - BTN_W / 2; // centered in collapsed strip
+
+        // Apply button transform to counteract sidebar scale and add flip
+        const updateBtn = (b, w, h, progress) => {
+            const counterX = b.width / Math.max(w, 1);
+            const counterY = b.height / Math.max(h, 1);
+            const left = btnInitLeft() + (btnFinalLeft() - btnInitLeft()) * progress;
+            // scaleX flips through 0 at progress=0.5 → mirrors the icon
+            const flipX = counterX * (1 - 2 * progress);
+            btn.style.right = 'auto';
+            btn.style.left = `${left.toFixed(1)}px`;
+            btn.style.transform = `scaleX(${flipX.toFixed(4)}) scaleY(${counterY.toFixed(4)})`;
+            btn.style.transformOrigin = 'center center';
+        };
+
+        const resetBtn = () => {
+            btn.style.right = '';
+            btn.style.left = '';
+            btn.style.transform = '';
+            btn.style.transformOrigin = '';
+        };
+
+        // === COLLAPSE ANIMATION ===
+        const doCollapse = () => {
+            if (animating || collapsed) return;
+            animating = true;
+            baseRect = readBase();
+            sidebar.classList.add('is-sidebar-animating');
+            sidebar.style.overflow = 'hidden';
+
+            const b = baseRect;
+            const BULGE = SP_PEAK * (b.width - COLLAPSED_W);
+            const maxH = getMaxH(b);
+            const delta = Math.min(b.height * BULGE / (b.width + BULGE), (maxH - b.height) / 2);
+            const h_min = b.height - delta;
+            const h_max = Math.min(b.height + delta, maxH);
+            const dur = 850;
+            const t0 = performance.now();
+
+            const tick = (now) => {
+                const t = Math.min(1, (now - t0) / dur);
+                let w, h;
+
+                if (t < 0.12) {
+                    const p = easeOut3(t / 0.12);
+                    w = b.width + BULGE * p;
+                    h = b.height - delta * p;
+                } else if (t < 0.65) {
+                    const p = easeInOut3((t - 0.12) / 0.53);
+                    w = (b.width + BULGE) + (COLLAPSED_W - b.width - BULGE) * p;
+                    h = h_min + (h_max - h_min) * p;
+                } else {
+                    const p = (t - 0.65) / 0.35;
+                    w = COLLAPSED_W;
+                    const bounceH = b.height + delta * Math.exp(-3 * p) * Math.cos(2 * Math.PI * p);
+                    h = Math.min(bounceH, maxH);
+                }
+
+                // Fade out content
+                if (navEl) navEl.style.opacity = (1 - Math.min(1, t / 0.5)).toFixed(3);
+
+                // Refraction: 1.95 → 1.70
+                this.sidebarConfig.refFactor = REF_EXPANDED + (REF_COLLAPSED - REF_EXPANDED) * t;
+
+                // Button: flip + reposition
+                updateBtn(b, w, h, t);
+
+                applyRect(buildRect(b, w, h));
+                this.render();
+
+                if (t < 1) {
+                    animFrame = requestAnimationFrame(tick);
+                } else {
+                    animFrame = 0;
+                    animating = false;
+                    collapsed = true;
+                    sidebar.classList.remove('is-sidebar-animating');
+                    sidebar.classList.add('sidebar-collapsed');
+                    if (navEl) navEl.style.opacity = '0';
+                    this.sidebarConfig.refFactor = REF_COLLAPSED;
+                    updateBtn(b, COLLAPSED_W, b.height, 1);
+                    applyRect(buildRect(b, COLLAPSED_W, b.height));
+                    this.render();
+                }
+            };
+            animFrame = requestAnimationFrame(tick);
+        };
+
+        // === EXPAND ANIMATION ===
+        const doExpand = (fromStretch) => {
+            if (animating || !collapsed) return;
+            animating = true;
+            sidebar.classList.remove('sidebar-collapsed');
+            sidebar.classList.add('is-sidebar-animating');
+
+            const b = baseRect;
+            const maxH = getMaxH(b);
+            const BULGE = SP_PEAK * (b.width - COLLAPSED_W);
+            const delta = Math.min(b.height * BULGE / (b.width + BULGE), (maxH - b.height) / 2);
+            const stretchH = fromStretch ? currentStretch : 0;
+            const dur = 775;
+            const t0 = performance.now();
+
+            const tick = (now) => {
+                const t = Math.min(1, (now - t0) / dur);
+                let w, h;
+
+                const spring = 1 - Math.exp(-SP_ALPHA * t) * Math.cos(SP_OMEGA * t);
+                w = COLLAPSED_W + (b.width - COLLAPSED_W) * spring;
+
+                // Height: base + overshoot contraction + stretch fade-out
+                if (w > b.width) {
+                    const overRatio = Math.min((w - b.width) / BULGE, 1);
+                    h = b.height - delta * overRatio;
+                } else {
+                    h = b.height;
+                }
+                // Stretch fades out smoothly over first 40% of animation
+                if (stretchH > 0) {
+                    h += stretchH * Math.max(0, 1 - t / 0.4);
+                }
+                h = Math.min(h, maxH);
+
+                // Fade in content
+                const fadeT = stretchH > 0 ? Math.max(0, (t - 0.3) / 0.5) : Math.max(0, (t - 0.2) / 0.5);
+                if (navEl) navEl.style.opacity = Math.min(1, fadeT).toFixed(3);
+
+                // Refraction: 1.70 → 1.95
+                this.sidebarConfig.refFactor = REF_COLLAPSED + (REF_EXPANDED - REF_COLLAPSED) * t;
+
+                // Button: reverse flip + reposition (progress 1→0)
+                updateBtn(b, w, h, 1 - t);
+
+                applyRect(buildRect(b, w, h));
+                this.render();
+
+                if (t < 1) {
+                    animFrame = requestAnimationFrame(tick);
+                } else {
+                    animFrame = 0;
+                    animating = false;
+                    collapsed = false;
+                    sidebar.classList.remove('is-sidebar-animating');
+                    sidebar.style.overflow = '';
+                    if (navEl) navEl.style.opacity = '';
+                    this.sidebarConfig.refFactor = REF_EXPANDED;
+                    resetBtn();
+                    resetGlass();
+                    this.render();
+                    this.scheduleCapture(200);
+                }
+            };
+            animFrame = requestAnimationFrame(tick);
+        };
+
+        // --- Event bindings ---
+
+        // Collapse button: only works when expanded
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            if (!collapsed) doCollapse();
+        });
+
+        // Mousedown on collapsed strip: stretch → hold → expand directly (with stretch)
+        let stretchFrame = 0;
+        let currentStretch = 0;
+        sidebar.addEventListener('mousedown', e => {
+            if (!collapsed || animating) return;
+            e.preventDefault();
+            sidebar.classList.add('is-sidebar-animating');
+
+            const b = baseRect;
+            const stretchTarget = 24;
+            const stretchDur = 280;
+            let mouseHeld = true;
+            let stretchDone = false;
+            currentStretch = 0;
+
+            // Phase 1: Stretch out
+            const stretchT0 = performance.now();
+            const stretchTick = (now) => {
+                const st = Math.min(1, (now - stretchT0) / stretchDur);
+                const p = easeOut3(st);
+                currentStretch = stretchTarget * p;
+                applyRect(buildRect(b, COLLAPSED_W, b.height + currentStretch));
+                this.render();
+                if (st < 1) {
+                    stretchFrame = requestAnimationFrame(stretchTick);
+                } else {
+                    stretchFrame = 0;
+                    stretchDone = true;
+                    if (!mouseHeld) doExpand(true);
+                }
+            };
+            stretchFrame = requestAnimationFrame(stretchTick);
+
+            const up = () => {
+                document.removeEventListener('mouseup', up);
+                mouseHeld = false;
+                if (stretchDone) doExpand(true);
+                // else: stretchTick will call doExpand when it finishes
+            };
+            document.addEventListener('mouseup', up);
+        });
+
+        // Resize: update base rect when not collapsed
+        window.addEventListener('resize', () => {
+            if (!collapsed && !animating) baseRect = readBase();
+        });
+
+        // Mobile: auto-collapse on init
+        const isMobile = () => window.innerWidth <= 900;
+        if (isMobile()) {
+            baseRect = readBase();
+            collapsed = true;
+            sidebar.classList.add('sidebar-collapsed');
+            sidebar.style.overflow = 'hidden';
+            if (navEl) navEl.style.opacity = '0';
+            this.sidebarConfig.refFactor = REF_COLLAPSED;
+            updateBtn(baseRect, COLLAPSED_W, baseRect.height, 1);
+            applyRect(buildRect(baseRect, COLLAPSED_W, baseRect.height));
+            this.render();
+        }
     };
 
     const boot = () => {
